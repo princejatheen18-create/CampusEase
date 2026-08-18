@@ -6,8 +6,14 @@ import {
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
-const STORAGE_KEY = "campusease-data-v4";
-const FLOORS = ["Floor 1", "Floor 2", "Floor 3"];
+const STORAGE_KEY = "campusease-data-v5";
+const FLOORS = ["FET Block", "PU Block", "Aerospace Block"];
+const CAMPUS = {
+  name: "JAIN Global Campus",
+  address: "Jakkasandra Post, Kanakapura Road, Ramanagara District, Bengaluru — 562112",
+  size: "350-acre campus",
+  slogan: "350 Acres. One App.",
+};
 const STATUS_FILTERS = ["All", "ok", "watch", "flagged"];
 
 const LIGHT = {
@@ -54,19 +60,20 @@ const TYPE_META = {
 };
 
 const FLOOR_PINS = {
-  "Floor 1": { "f1-charge-104": [22, 30], "f1-charge-lib": [78, 30], "f1-vend-lobby": [50, 74], "f1-wash-a": [10, 74] },
-  "Floor 2": { "f2-charge-204": [25, 30], "f2-vend-lounge": [75, 30], "f2-wash": [50, 74] },
-  "Floor 3": { "f3-charge-hall": [25, 30], "f3-vend": [75, 30], "f3-wash": [50, 74] },
+  "FET Block": { "f1-charge-104": [22, 30], "f1-charge-lib": [78, 30], "f1-vend-lobby": [50, 74], "f1-wash-a": [10, 74] },
+  "PU Block": { "f2-charge-204": [25, 30], "f2-vend-lounge": [75, 30], "f2-wash": [50, 74] },
+  "Aerospace Block": { "f3-charge-hall": [25, 30], "f3-vend": [75, 30], "f3-wash": [50, 74] },
 };
 
-// where "you" enter the floor from — used to draw the walking route
-const FLOOR_ENTRANCE = { "Floor 1": [50, 90], "Floor 2": [50, 90], "Floor 3": [50, 90] };
+// where "you" enter each block from — used to draw the walking route
+const FLOOR_ENTRANCE = { "FET Block": [50, 90], "PU Block": [50, 90], "Aerospace Block": [50, 90] };
+const BLOCK_SHORT = { "FET Block": "FET", "PU Block": "PU", "Aerospace Block": "Aero" };
 
 const TAB_META = {
   explore: { label: "Explore", subtitle: "Live status of every facility on campus." },
   report: { label: "Report", subtitle: "Flag something that needs attention." },
   reserve: { label: "Reserve", subtitle: "Book a charging bay ahead of time." },
-  insights: { label: "Insights", subtitle: "Trends across reports and floors." },
+  insights: { label: "Insights", subtitle: "Trends across reports and blocks." },
   admin: { label: "Admin", subtitle: "Open issues and the full activity log." },
 };
 
@@ -74,16 +81,16 @@ function defaultFacilities() {
   const now = Date.now();
   const mins = (n) => now - n * 60000;
   return [
-    { id: "f1-charge-104", name: "Room 104", floor: "Floor 1", type: "charging", status: "ok", updatedAt: mins(12) },
-    { id: "f1-charge-lib", name: "Library entrance", floor: "Floor 1", type: "charging", status: "watch", updatedAt: mins(4) },
-    { id: "f1-vend-lobby", name: "Lobby", floor: "Floor 1", type: "vending", status: "ok", updatedAt: mins(30) },
-    { id: "f1-wash-a", name: "Block A", floor: "Floor 1", type: "washroom", status: "ok", updatedAt: mins(90) },
-    { id: "f2-charge-204", name: "Room 204", floor: "Floor 2", type: "charging", status: "ok", updatedAt: mins(18) },
-    { id: "f2-vend-lounge", name: "Floor 2 lounge", floor: "Floor 2", type: "vending", status: "watch", updatedAt: mins(6) },
-    { id: "f2-wash", name: "Floor 2", floor: "Floor 2", type: "washroom", status: "watch", updatedAt: mins(45) },
-    { id: "f3-charge-hall", name: "Seminar hall", floor: "Floor 3", type: "charging", status: "ok", updatedAt: mins(3) },
-    { id: "f3-vend", name: "Floor 3", floor: "Floor 3", type: "vending", status: "ok", updatedAt: mins(60) },
-    { id: "f3-wash", name: "Floor 3", floor: "Floor 3", type: "washroom", status: "flagged", updatedAt: mins(9) },
+    { id: "f1-charge-104", name: "Room 104", floor: "FET Block", type: "charging", status: "ok", updatedAt: mins(12) },
+    { id: "f1-charge-lib", name: "Library entrance", floor: "FET Block", type: "charging", status: "watch", updatedAt: mins(4) },
+    { id: "f1-vend-lobby", name: "Main lobby", floor: "FET Block", type: "vending", status: "ok", updatedAt: mins(30) },
+    { id: "f1-wash-a", name: "Ground floor", floor: "FET Block", type: "washroom", status: "ok", updatedAt: mins(90) },
+    { id: "f2-charge-204", name: "Workshop corridor", floor: "PU Block", type: "charging", status: "ok", updatedAt: mins(18) },
+    { id: "f2-vend-lounge", name: "Faculty lounge", floor: "PU Block", type: "vending", status: "watch", updatedAt: mins(6) },
+    { id: "f2-wash", name: "First floor", floor: "PU Block", type: "washroom", status: "watch", updatedAt: mins(45) },
+    { id: "f3-charge-hall", name: "Design studio", floor: "Aerospace Block", type: "charging", status: "ok", updatedAt: mins(3) },
+    { id: "f3-vend", name: "Hangar lobby", floor: "Aerospace Block", type: "vending", status: "ok", updatedAt: mins(60) },
+    { id: "f3-wash", name: "Ground floor", floor: "Aerospace Block", type: "washroom", status: "flagged", updatedAt: mins(9) },
   ];
 }
 
@@ -171,9 +178,110 @@ function Switch({ on, onClick, color }) {
   );
 }
 
+function CampusHero() {
+  // Original illustration — not a photo — evoking a green, low-rise campus at dusk/day
+  const skyTop = COLORS.panel;
+  const buildings = [
+    { x: 30, w: 46, h: 92, c: COLORS.panel },
+    { x: 82, w: 60, h: 130, c: COLORS.teal },
+    { x: 148, w: 44, h: 78, c: COLORS.panel },
+    { x: 198, w: 66, h: 110, c: COLORS.coral },
+    { x: 270, w: 50, h: 88, c: COLORS.panel },
+    { x: 326, w: 40, h: 66, c: COLORS.panel },
+  ];
+  return (
+    <svg viewBox="0 0 400 220" style={{ width: "100%", height: "auto", display: "block" }}>
+      <defs>
+        <radialGradient id="ceSky" cx="50%" cy="30%" r="75%">
+          <stop offset="0%" stopColor={COLORS.tealBg} />
+          <stop offset="100%" stopColor="transparent" />
+        </radialGradient>
+      </defs>
+      <rect x="0" y="0" width="400" height="220" fill="url(#ceSky)" />
+      <circle cx="330" cy="42" r="22" fill={COLORS.gold || COLORS.amber} opacity="0.85" />
+      <line x1="0" y1="182" x2="400" y2="182" stroke={COLORS.line} strokeWidth="1.5" />
+      {buildings.map((b, i) => (
+        <g key={i}>
+          <rect x={b.x} y={182 - b.h} width={b.w} height={b.h} rx="3" fill={b.c} opacity={b.c === COLORS.panel ? 1 : 0.9} stroke={COLORS.line} strokeWidth="1" />
+          {Array.from({ length: Math.floor(b.h / 20) }).map((_, r) =>
+            Array.from({ length: Math.max(2, Math.floor(b.w / 16)) }).map((_, c) => (
+              <rect
+                key={`${r}-${c}`}
+                x={b.x + 8 + c * 15}
+                y={182 - b.h + 10 + r * 20}
+                width="6"
+                height="8"
+                rx="1"
+                fill={b.c === COLORS.panel ? COLORS.line : "rgba(255,255,255,0.55)"}
+              />
+            ))
+          )}
+        </g>
+      ))}
+      {/* foreground trees */}
+      {[18, 60, 118, 172, 240, 300, 355, 385].map((x, i) => (
+        <g key={i}>
+          <rect x={x - 2} y={182} width="4" height="10" fill={COLORS.line} />
+          <circle cx={x} cy={176} r={i % 2 ? 9 : 7} fill={COLORS.teal} opacity="0.55" />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+function WelcomeScreen({ theme, setTheme, onEnter }) {
+  return (
+    <div style={{ minHeight: "100vh", background: COLORS.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 20px", fontFamily: "'Inter', system-ui, sans-serif", position: "relative" }}>
+      <style>{`
+        .ce-btn { transition: transform 0.1s ease, background 0.15s ease, border-color 0.15s ease; cursor: pointer; }
+        .ce-btn:active { transform: scale(0.97); }
+        .ce-btn:focus-visible { outline: 2px solid ${COLORS.teal}; outline-offset: 2px; }
+      `}</style>
+      <button
+        className="ce-btn"
+        onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+        style={{ position: "absolute", top: 24, right: 24, display: "flex", alignItems: "center", gap: 8, padding: "9px 14px", borderRadius: 999, border: `1px solid ${COLORS.line}`, background: COLORS.surface, color: COLORS.inkMuted, fontSize: 12.5, fontWeight: 500 }}
+      >
+        {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+        {theme === "dark" ? "Light mode" : "Dark mode"}
+      </button>
+
+      <div style={{ width: "100%", maxWidth: 460 }}>
+        <div style={{ borderRadius: 20, overflow: "hidden", border: `1px solid ${COLORS.line}`, marginBottom: 28 }}>
+          <CampusHero />
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", marginBottom: 6 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 9, background: COLORS.teal, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Building2 size={17} color="#0F1216" />
+          </div>
+          <span style={{ fontFamily: "'Space Grotesk', 'Inter', system-ui, sans-serif", fontWeight: 700, fontSize: 26, color: COLORS.ink, letterSpacing: "-0.01em" }}>CampusEase</span>
+        </div>
+
+        <p style={{ textAlign: "center", fontFamily: "'Space Grotesk', 'Inter', system-ui, sans-serif", fontSize: 15, fontWeight: 600, color: COLORS.teal, margin: "0 0 18px" }}>
+          {CAMPUS.slogan}
+        </p>
+
+        <p style={{ textAlign: "center", fontSize: 13, color: COLORS.inkMuted, lineHeight: 1.6, margin: "0 0 28px" }}>
+          Built for <strong style={{ color: COLORS.ink }}>{CAMPUS.name}</strong> — {CAMPUS.address}. A live tracker for charging bays, vending machines and washrooms across the {CAMPUS.size}.
+        </p>
+
+        <button
+          className="ce-btn"
+          onClick={onEnter}
+          style={{ width: "100%", padding: "13px 0", borderRadius: 12, border: "none", background: COLORS.teal, color: "#0F1216", fontSize: 14.5, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+        >
+          Enter CampusEase
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function CampusEase() {
   const [data, setData] = useState(null);
   const [theme, setTheme] = useState("dark");
+  const [entered, setEntered] = useState(false);
   Object.assign(COLORS, theme === "dark" ? DARK : LIGHT);
 
   const [tab, setTab] = useState("explore");
@@ -339,7 +447,7 @@ export default function CampusEase() {
 
   const insights = useMemo(() => {
     const byType = { charging: 0, vending: 0, washroom: 0 };
-    const byFloor = { "Floor 1": 0, "Floor 2": 0, "Floor 3": 0 };
+    const byFloor = { "FET Block": 0, "PU Block": 0, "Aerospace Block": 0 };
     const perFacility = {};
     reports.forEach((r) => {
       const f = facility(r.facilityId);
@@ -360,7 +468,7 @@ export default function CampusEase() {
         { name: "Vending", count: byType.vending },
         { name: "Washroom", count: byType.washroom },
       ],
-      byFloor: FLOORS.map((fl) => ({ name: fl.replace("Floor ", "F"), count: byFloor[fl] })),
+      byFloor: FLOORS.map((fl) => ({ name: BLOCK_SHORT[fl] || fl, count: byFloor[fl] })),
       avgMins,
       topFacility: topId ? facilityName(topId) : "—",
       openCount: openQueue.length,
@@ -388,6 +496,10 @@ export default function CampusEase() {
     { id: "insights", label: "Insights", icon: BarChart3 },
     { id: "admin", label: "Admin", icon: ShieldCheck },
   ];
+
+  if (!entered) {
+    return <WelcomeScreen theme={theme} setTheme={setTheme} onEnter={() => setEntered(true)} />;
+  }
 
   return (
     <div className="ce-app" style={{ background: COLORS.bg, minHeight: "100vh", fontFamily: "'Inter', system-ui, sans-serif", color: COLORS.ink }}>
@@ -570,7 +682,7 @@ export default function CampusEase() {
                 {floorFilter === "All" ? (
                   <div style={{ padding: "70px 16px", textAlign: "center", background: COLORS.panel, border: `1px solid ${COLORS.line}`, borderRadius: 16 }}>
                     <MapIcon size={22} color={COLORS.inkFaint} style={{ marginBottom: 8 }} />
-                    <p style={{ fontSize: 13, color: COLORS.inkMuted, margin: 0 }}>Pick a floor above to see its map.</p>
+                    <p style={{ fontSize: 13, color: COLORS.inkMuted, margin: 0 }}>Pick a block above to see its map.</p>
                   </div>
                 ) : (
                   <div className="ce-map-layout">
@@ -791,7 +903,7 @@ export default function CampusEase() {
                 </div>
               </div>
               <div>
-                <p style={{ fontSize: 12.5, color: COLORS.inkMuted, margin: "0 0 8px" }}>Reports by floor</p>
+                <p style={{ fontSize: 12.5, color: COLORS.inkMuted, margin: "0 0 8px" }}>Reports by block</p>
                 <div style={{ height: 220, background: COLORS.panel, border: `1px solid ${COLORS.line}`, borderRadius: 14, padding: "14px 10px 4px" }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={insights.byFloor} margin={{ top: 4, right: 10, left: -10, bottom: 0 }}>
