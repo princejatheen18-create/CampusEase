@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import {
   Zap, Cookie, Wind, Flag, Clock, Check, X, Search, Map as MapIcon, List,
   ShieldCheck, BarChart3, CheckCircle2, TrendingUp, Building2, Plus,
-  Star, Moon, Sun, Sparkles,
+  Star, Moon, Sun, Sparkles, Wifi, Droplets, User, GraduationCap, QrCode, Navigation,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
@@ -57,13 +57,40 @@ const TYPE_META = {
   charging: { icon: Zap, noun: "Charging bay", labels: { ok: "Free", watch: "In use", flagged: "Out of order" } },
   vending: { icon: Cookie, noun: "Vending machine", labels: { ok: "Stocked", watch: "Low stock", flagged: "Out of order" } },
   washroom: { icon: Wind, noun: "Washroom", labels: { ok: "Clean", watch: "Needs attention", flagged: "Out of service" } },
+  wifi: { icon: Wifi, noun: "WiFi zone", labels: { ok: "Strong signal", watch: "Weak signal", flagged: "No signal" } },
+  watercooler: { icon: Droplets, noun: "Water cooler", labels: { ok: "Clean", watch: "Due for cleaning", flagged: "Needs cleaning" } },
 };
 
 const FLOOR_PINS = {
-  "FET Block": { "f1-charge-104": [22, 30], "f1-charge-lib": [78, 30], "f1-vend-lobby": [50, 74], "f1-wash-a": [10, 74] },
-  "PU Block": { "f2-charge-204": [25, 30], "f2-vend-lounge": [75, 30], "f2-wash": [50, 74] },
-  "Aerospace Block": { "f3-charge-hall": [25, 30], "f3-vend": [75, 30], "f3-wash": [50, 74] },
+  "FET Block": {
+    "f1-charge-104": [22, 30], "f1-charge-lib": [78, 30], "f1-vend-lobby": [50, 74], "f1-wash-a": [10, 74],
+    "f1-wifi-lib": [50, 18], "f1-water-canteen": [90, 74],
+  },
+  "PU Block": {
+    "f2-charge-204": [25, 30], "f2-vend-lounge": [75, 30], "f2-wash": [50, 74],
+    "f2-wifi-workshop": [50, 18], "f2-water-corridor": [85, 74],
+  },
+  "Aerospace Block": {
+    "f3-charge-hall": [25, 30], "f3-vend": [75, 30], "f3-wash": [50, 74],
+    "f3-wifi-hangar": [50, 18], "f3-water-ground": [85, 74],
+  },
 };
+
+// Teacher cabin pins, kept separate from facility pins but drawn on the same map
+const TEACHER_PINS = {
+  "FET Block": { "t1": [35, 16], "t2": [65, 16] },
+  "PU Block": { "t3": [35, 16], "t4": [65, 16] },
+  "Aerospace Block": { "t5": [35, 16], "t6": [65, 16] },
+};
+
+const TEACHERS = [
+  { id: "t1", name: "Dr. Ramesh Iyer", dept: "Computer Science", floor: "FET Block", room: "Room 210" },
+  { id: "t2", name: "Prof. Anitha Kumar", dept: "Electronics & Communication", floor: "FET Block", room: "Room 215" },
+  { id: "t3", name: "Dr. Suresh Rao", dept: "Mechanical Engineering", floor: "PU Block", room: "Room 118" },
+  { id: "t4", name: "Prof. Meena Nair", dept: "Civil Engineering", floor: "PU Block", room: "Room 122" },
+  { id: "t5", name: "Dr. Arvind Menon", dept: "Aerospace Engineering", floor: "Aerospace Block", room: "Hangar Office 3" },
+  { id: "t6", name: "Prof. Divya Shetty", dept: "Avionics", floor: "Aerospace Block", room: "Hangar Office 5" },
+];
 
 // where "you" enter each block from — used to draw the walking route
 const FLOOR_ENTRANCE = { "FET Block": [50, 90], "PU Block": [50, 90], "Aerospace Block": [50, 90] };
@@ -71,10 +98,11 @@ const BLOCK_SHORT = { "FET Block": "FET", "PU Block": "PU", "Aerospace Block": "
 
 const TAB_META = {
   explore: { label: "Explore", subtitle: "Live status of every facility on campus." },
+  teachers: { label: "Teachers", subtitle: "Find a teacher's cabin and get walking directions." },
   report: { label: "Report", subtitle: "Flag something that needs attention." },
   reserve: { label: "Reserve", subtitle: "Book a charging bay ahead of time." },
   insights: { label: "Insights", subtitle: "Trends across reports and blocks." },
-  admin: { label: "Admin", subtitle: "Open issues and the full activity log." },
+  admin: { label: "Admin", subtitle: "Open issues, QR codes, and the full activity log." },
 };
 
 function defaultFacilities() {
@@ -91,6 +119,12 @@ function defaultFacilities() {
     { id: "f3-charge-hall", name: "Design studio", floor: "Aerospace Block", type: "charging", status: "ok", updatedAt: mins(3) },
     { id: "f3-vend", name: "Hangar lobby", floor: "Aerospace Block", type: "vending", status: "ok", updatedAt: mins(60) },
     { id: "f3-wash", name: "Ground floor", floor: "Aerospace Block", type: "washroom", status: "flagged", updatedAt: mins(9) },
+    { id: "f1-wifi-lib", name: "Library wing", floor: "FET Block", type: "wifi", status: "ok", updatedAt: mins(8) },
+    { id: "f2-wifi-workshop", name: "Workshop area", floor: "PU Block", type: "wifi", status: "watch", updatedAt: mins(22) },
+    { id: "f3-wifi-hangar", name: "Hangar lab", floor: "Aerospace Block", type: "wifi", status: "flagged", updatedAt: mins(15) },
+    { id: "f1-water-canteen", name: "Near canteen", floor: "FET Block", type: "watercooler", status: "ok", updatedAt: mins(180), lastCleaned: mins(180) },
+    { id: "f2-water-corridor", name: "Main corridor", floor: "PU Block", type: "watercooler", status: "watch", updatedAt: mins(1800), lastCleaned: mins(1800) },
+    { id: "f3-water-ground", name: "Ground floor", floor: "Aerospace Block", type: "watercooler", status: "flagged", updatedAt: mins(3000), lastCleaned: mins(3000) },
   ];
 }
 
@@ -294,6 +328,9 @@ export default function CampusEase() {
   const [now, setNow] = useState(Date.now());
   const [toast, setToast] = useState(null);
   const [simulate, setSimulate] = useState(false);
+  const [teacherQuery, setTeacherQuery] = useState("");
+  const [teacherFloorFilter, setTeacherFloorFilter] = useState("All");
+  const [selectedTeacherId, setSelectedTeacherId] = useState(null);
 
   const [reportFacility, setReportFacility] = useState("");
   const [reportNote, setReportNote] = useState("");
@@ -336,6 +373,27 @@ export default function CampusEase() {
     setToast({ kind, text });
     setTimeout(() => setToast(null), 2600);
   };
+
+  // QR deep-link: a scanned water-cooler QR opens straight to that facility's status
+  useEffect(() => {
+    if (!data) return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const qrId = params.get("qr");
+      if (qrId) {
+        const f = (data.facilities || []).find((x) => x.id === qrId);
+        if (f) {
+          setEntered(true);
+          setTab("explore");
+          setExploreView("list");
+          setFloorFilter(f.floor);
+          setQuery(f.name);
+          showToast("ok", `Scanned: ${f.name} — showing the latest status.`);
+        }
+      }
+    } catch (e) {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
 
   const facilities = data?.facilities ?? [];
   const reports = data?.reports ?? [];
@@ -438,6 +496,17 @@ export default function CampusEase() {
     showToast("ok", "Marked resolved.");
   };
 
+  const markCleaned = (facilityId) => {
+    const next = {
+      ...data,
+      facilities: facilities.map((f) =>
+        f.id === facilityId ? { ...f, status: "ok", updatedAt: Date.now(), lastCleaned: Date.now() } : f
+      ),
+    };
+    persist(next);
+    showToast("ok", "Marked as cleaned just now.");
+  };
+
   const feed = useMemo(() => {
     const items = [...reports.map((r) => ({ kind: "report", ...r })), ...reservations.map((r) => ({ kind: "reservation", ...r }))];
     return items.sort((a, b) => b.timestamp - a.timestamp);
@@ -446,7 +515,7 @@ export default function CampusEase() {
   const openQueue = useMemo(() => reports.filter((r) => r.status === "open").sort((a, b) => a.timestamp - b.timestamp), [reports]);
 
   const insights = useMemo(() => {
-    const byType = { charging: 0, vending: 0, washroom: 0 };
+    const byType = { charging: 0, vending: 0, washroom: 0, wifi: 0, watercooler: 0 };
     const byFloor = { "FET Block": 0, "PU Block": 0, "Aerospace Block": 0 };
     const perFacility = {};
     reports.forEach((r) => {
@@ -467,6 +536,8 @@ export default function CampusEase() {
         { name: "Charging", count: byType.charging },
         { name: "Vending", count: byType.vending },
         { name: "Washroom", count: byType.washroom },
+        { name: "WiFi", count: byType.wifi },
+        { name: "Water", count: byType.watercooler },
       ],
       byFloor: FLOORS.map((fl) => ({ name: BLOCK_SHORT[fl] || fl, count: byFloor[fl] })),
       avgMins,
@@ -489,8 +560,32 @@ export default function CampusEase() {
     return { meters, mins };
   }, [entrance, selectedPin, pins]);
 
+  const visibleTeachers = useMemo(() => {
+    let list = teacherFloorFilter === "All" ? TEACHERS : TEACHERS.filter((t) => t.floor === teacherFloorFilter);
+    if (teacherQuery.trim()) {
+      const q = teacherQuery.trim().toLowerCase();
+      list = list.filter((t) => t.name.toLowerCase().includes(q) || t.dept.toLowerCase().includes(q));
+    }
+    return list;
+  }, [teacherFloorFilter, teacherQuery]);
+
+  const selectedTeacher = selectedTeacherId ? TEACHERS.find((t) => t.id === selectedTeacherId) : null;
+  const teacherPins = selectedTeacher ? TEACHER_PINS[selectedTeacher.floor] || {} : null;
+  const teacherEntrance = selectedTeacher ? FLOOR_ENTRANCE[selectedTeacher.floor] : null;
+
+  const teacherRouteInfo = useMemo(() => {
+    if (!selectedTeacher || !teacherEntrance || !teacherPins || !teacherPins[selectedTeacher.id]) return null;
+    const [ex, ey] = teacherEntrance;
+    const [px, py] = teacherPins[selectedTeacher.id];
+    const pct = Math.hypot(px - ex, py - ey);
+    const meters = Math.max(4, Math.round(pct * 0.55));
+    const mins = Math.max(1, Math.round(meters / 70));
+    return { meters, mins };
+  }, [selectedTeacher, teacherEntrance, teacherPins]);
+
   const NAV = [
     { id: "explore", label: "Explore", icon: MapIcon },
+    { id: "teachers", label: "Teachers", icon: GraduationCap },
     { id: "report", label: "Report", icon: Flag },
     { id: "reserve", label: "Reserve", icon: Clock },
     { id: "insights", label: "Insights", icon: BarChart3 },
@@ -668,7 +763,11 @@ export default function CampusEase() {
                           </div>
                           <span style={{ display: "inline-block", marginTop: 4, fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, fontWeight: 600, color: statusColor(f.status), background: statusBg(f.status), padding: "3px 8px", borderRadius: 999 }}>{meta.labels[f.status]}</span>
                           <p style={{ margin: "6px 0 0", fontSize: 12, color: COLORS.inkMuted }}>{meta.noun} · {f.floor}</p>
-                          <p style={{ margin: "4px 0 0", fontSize: 11.5, color: COLORS.inkFaint }}>Updated {formatRelative(f.updatedAt, now)}</p>
+                          {f.type === "watercooler" ? (
+                            <p style={{ margin: "4px 0 0", fontSize: 11.5, color: COLORS.inkFaint }}>Last cleaned {formatRelative(f.lastCleaned, now)}</p>
+                          ) : (
+                            <p style={{ margin: "4px 0 0", fontSize: 11.5, color: COLORS.inkFaint }}>Updated {formatRelative(f.updatedAt, now)}</p>
+                          )}
                         </div>
                       </div>
                     );
@@ -763,6 +862,11 @@ export default function CampusEase() {
                             <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, fontWeight: 600, color: statusColor(selectedFacility.status), background: statusBg(selectedFacility.status), padding: "3px 8px", borderRadius: 999 }}>{TYPE_META[selectedFacility.type].labels[selectedFacility.status]}</span>
                           </div>
                           <p style={{ margin: 0, fontSize: 12.5, color: COLORS.inkMuted }}>{TYPE_META[selectedFacility.type].noun} · Updated {formatRelative(selectedFacility.updatedAt, now)}</p>
+                          {selectedFacility.type === "watercooler" && (
+                            <p style={{ margin: "4px 0 0", fontSize: 12.5, color: COLORS.inkMuted, display: "flex", alignItems: "center", gap: 6 }}>
+                              <Droplets size={12} /> Last cleaned {formatRelative(selectedFacility.lastCleaned, now)}
+                            </p>
+                          )}
                           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                             <button className="ce-btn" onClick={() => { setReportFacility(selectedFacility.id); setTab("report"); }} style={{ flex: 1, fontSize: 12.5, fontWeight: 500, padding: "9px 0", borderRadius: 9, border: `1px solid ${COLORS.line}`, background: COLORS.surface, color: COLORS.ink }}>Report issue</button>
                             {selectedFacility.type === "charging" && (
@@ -793,6 +897,120 @@ export default function CampusEase() {
                 )}
               </>
             )}
+          </div>
+        )}
+
+        {data && tab === "teachers" && (
+          <div key="teachers" className="ce-fade">
+            <div className="ce-toolbar">
+              <div className="ce-scroll" style={{ display: "flex", gap: 8, overflowX: "auto" }}>
+                {["All", ...FLOORS].map((fl) => (
+                  <Chip key={fl} active={teacherFloorFilter === fl} onClick={() => { setTeacherFloorFilter(fl); setSelectedTeacherId(null); }}>{fl}</Chip>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ position: "relative", marginBottom: 16, maxWidth: 420 }}>
+              <Search size={14} color={COLORS.inkMuted} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
+              <input className="ce-input" style={{ paddingLeft: 32 }} placeholder="Search by name or department" value={teacherQuery} onChange={(e) => setTeacherQuery(e.target.value)} />
+            </div>
+
+            <div className="ce-map-layout">
+              <div>
+                <div className="ce-grid" style={{ marginBottom: 4 }}>
+                  {visibleTeachers.length === 0 && <p style={{ fontSize: 13, color: COLORS.inkMuted, padding: "20px 0", gridColumn: "1/-1" }}>No teachers match.</p>}
+                  {visibleTeachers.map((t) => {
+                    const active = selectedTeacherId === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        className="ce-btn"
+                        onClick={() => setSelectedTeacherId(t.id)}
+                        style={{ textAlign: "left", display: "flex", alignItems: "flex-start", gap: 12, padding: "16px", background: active ? COLORS.tealBg : COLORS.panel, borderRadius: 14, border: `1px solid ${active ? COLORS.teal : COLORS.line}` }}
+                      >
+                        <div style={{ width: 38, height: 38, borderRadius: 10, background: COLORS.ink, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          <User size={18} color={COLORS.bg} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: COLORS.ink }}>{t.name}</p>
+                          <p style={{ margin: "3px 0 0", fontSize: 12, color: COLORS.inkMuted }}>{t.dept}</p>
+                          <p style={{ margin: "4px 0 0", fontSize: 11.5, color: COLORS.inkFaint, display: "flex", alignItems: "center", gap: 5 }}>
+                            <Navigation size={11} /> {t.room} · {t.floor}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {!selectedTeacher ? (
+                  <div style={{ background: COLORS.panel, border: `1px solid ${COLORS.line}`, borderRadius: 14, padding: 16, fontSize: 12.5, color: COLORS.inkMuted }}>
+                    Pick a teacher to see their cabin on the map with walking directions from the entrance.
+                  </div>
+                ) : (
+                  <>
+                    <div className="ce-fade" style={{ background: COLORS.panel, border: `1px solid ${COLORS.line}`, borderRadius: 14, padding: 16 }}>
+                      <p style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{selectedTeacher.name}</p>
+                      <p style={{ margin: "3px 0 0", fontSize: 12.5, color: COLORS.inkMuted }}>{selectedTeacher.dept}</p>
+                      <p style={{ margin: "8px 0 0", fontSize: 12.5, color: COLORS.ink, display: "flex", alignItems: "center", gap: 6 }}>
+                        <Navigation size={13} color={COLORS.teal} /> {selectedTeacher.room}, {selectedTeacher.floor}
+                      </p>
+                      {teacherRouteInfo && (
+                        <p style={{ margin: "6px 0 0", fontSize: 12, color: COLORS.inkMuted }}>
+                          ~{teacherRouteInfo.meters}m from the entrance · about {teacherRouteInfo.mins} min walk
+                        </p>
+                      )}
+                    </div>
+
+                    <div style={{ position: "relative", width: "100%", paddingBottom: "56%", background: COLORS.panel, border: `1px solid ${COLORS.line}`, borderRadius: 16 }}>
+                      <div style={{ position: "absolute", inset: 0 }}>
+                        <div style={{ position: "absolute", left: "5%", right: "5%", top: "48%", height: "9%", background: COLORS.surface, border: `1px dashed ${COLORS.line}`, borderRadius: 4 }} />
+                        <span style={{ position: "absolute", left: "50%", top: "52.5%", transform: "translate(-50%,-50%)", fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", color: COLORS.inkFaint, letterSpacing: "0.08em" }}>CORRIDOR</span>
+                        <div style={{ position: "absolute", left: "5%", top: "10%", width: "40%", height: "27%", border: `1px solid ${COLORS.line}`, borderRadius: 6 }} />
+                        <div style={{ position: "absolute", right: "5%", top: "10%", width: "40%", height: "27%", border: `1px solid ${COLORS.line}`, borderRadius: 6 }} />
+                        <div style={{ position: "absolute", left: "16%", bottom: "6%", width: "68%", height: "22%", border: `1px solid ${COLORS.line}`, borderRadius: 6 }} />
+
+                        <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+                          <defs>
+                            <marker id="ce-arrow-t" markerWidth="6" markerHeight="6" refX="4.5" refY="3" orient="auto">
+                              <path d="M0,0 L6,3 L0,6 z" fill={COLORS.teal} />
+                            </marker>
+                          </defs>
+                          {teacherEntrance && teacherPins && teacherPins[selectedTeacher.id] && (
+                            <line
+                              x1={teacherEntrance[0]} y1={teacherEntrance[1]} x2={teacherPins[selectedTeacher.id][0]} y2={teacherPins[selectedTeacher.id][1]}
+                              stroke={COLORS.teal} strokeWidth={0.9} strokeDasharray="2.4 1.8" markerEnd="url(#ce-arrow-t)"
+                              className="ce-route" vectorEffect="non-scaling-stroke"
+                            />
+                          )}
+                        </svg>
+
+                        {teacherEntrance && (
+                          <div style={{ position: "absolute", left: `${teacherEntrance[0]}%`, top: `${teacherEntrance[1]}%`, transform: "translate(-50%,-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                            <div style={{ width: 12, height: 12, borderRadius: "50%", background: COLORS.ink, border: `2px solid ${COLORS.surface}` }} />
+                            <span style={{ fontSize: 8.5, fontFamily: "'IBM Plex Mono', monospace", color: COLORS.inkFaint, whiteSpace: "nowrap" }}>ENTRANCE</span>
+                          </div>
+                        )}
+
+                        {teacherPins && teacherPins[selectedTeacher.id] && (
+                          <div
+                            style={{
+                              position: "absolute", left: `${teacherPins[selectedTeacher.id][0]}%`, top: `${teacherPins[selectedTeacher.id][1]}%`, transform: "translate(-50%,-50%)",
+                              width: 38, height: 38, borderRadius: "50%", background: COLORS.ink, border: `3px solid ${COLORS.surface}`,
+                              boxShadow: `0 0 0 4px ${COLORS.teal}40`, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2,
+                            }}
+                          >
+                            <User size={17} color={COLORS.bg} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -931,6 +1149,40 @@ export default function CampusEase() {
                 </div>
               </div>
               <Switch on={simulate} onClick={() => setSimulate(!simulate)} color={COLORS.teal} />
+            </div>
+
+            <div style={{ marginBottom: 22 }}>
+              <p style={{ fontSize: 12.5, color: COLORS.inkMuted, margin: "0 0 10px", textTransform: "uppercase", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 6 }}>
+                <QrCode size={13} /> Water cooler QR codes
+              </p>
+              <p style={{ fontSize: 12, color: COLORS.inkMuted, margin: "0 0 12px" }}>
+                Print these and stick one on each water cooler. Scanning opens the app straight to that cooler's live status and last-cleaned time.
+              </p>
+              <div className="ce-grid">
+                {facilities.filter((f) => f.type === "watercooler").map((f) => {
+                  const deepLink = typeof window !== "undefined"
+                    ? `${window.location.origin}${window.location.pathname}?qr=${f.id}`
+                    : `https://example.com/?qr=${f.id}`;
+                  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(deepLink)}`;
+                  return (
+                    <div key={f.id} style={{ background: COLORS.panel, border: `1px solid ${COLORS.line}`, borderRadius: 14, padding: 16, display: "flex", gap: 14, alignItems: "center" }}>
+                      <div style={{ width: 92, height: 92, borderRadius: 10, background: "#fff", padding: 6, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${COLORS.line}` }}>
+                        <img src={qrSrc} alt={`QR code for ${f.name}`} width={80} height={80} style={{ display: "block" }} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{f.name}</p>
+                        <p style={{ margin: "2px 0 0", fontSize: 11.5, color: COLORS.inkMuted }}>{f.floor}</p>
+                        <p style={{ margin: "6px 0 8px", fontSize: 11.5, color: COLORS.inkFaint, display: "flex", alignItems: "center", gap: 5 }}>
+                          <Droplets size={11} /> Last cleaned {formatRelative(f.lastCleaned, now)}
+                        </p>
+                        <button className="ce-btn" onClick={() => markCleaned(f.id)} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 500, padding: "6px 12px", borderRadius: 8, border: "none", background: COLORS.teal, color: "#0F1216" }}>
+                          <CheckCircle2 size={13} /> Mark cleaned now
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="ce-admin-grid">
