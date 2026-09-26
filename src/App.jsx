@@ -3,12 +3,12 @@ import {
   Zap, Cookie, Wind, Wifi, Droplets, Flag, Clock, Check, X, CheckCircle2,
   TrendingUp, Building2, Plus, Moon, Sun, Sparkles, User, GraduationCap,
   QrCode, Navigation, Camera, ArrowLeft, Home as HomeIcon, ShieldCheck,
-  Search, ChevronRight, AlertCircle,
+  Search, ChevronRight, AlertCircle, DoorOpen, UtensilsCrossed, BedDouble,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
-const STORAGE_KEY = "campusease-data-v6";
-const FLOORS = ["FET Block", "PU Block", "Aerospace Block"];
+const STORAGE_KEY = "campusease-data-v7";
+const FLOORS = ["FET Block", "Mechanical Block", "Aerospace Block"];
 const CAMPUS = {
   name: "JAIN Global Campus",
   address: "Jakkasandra Post, Kanakapura Road, Ramanagara District, Bengaluru — 562112",
@@ -36,47 +36,93 @@ const TYPE_META = {
   watercooler: { icon: Droplets, noun: "Water cooler", labels: { ok: "Clean", watch: "Due for cleaning", flagged: "Needs cleaning" } },
 };
 
-const FLOOR_PINS = {
-  "FET Block": { "f1-charge-104": [22, 30], "f1-charge-lib": [78, 30], "f1-vend-lobby": [50, 74], "f1-wash-a": [10, 74], "f1-wifi-lib": [50, 18], "f1-water-canteen": [90, 74] },
-  "PU Block": { "f2-charge-204": [25, 30], "f2-vend-lounge": [75, 30], "f2-wash": [50, 74], "f2-wifi-workshop": [50, 18], "f2-water-corridor": [85, 74] },
-  "Aerospace Block": { "f3-charge-hall": [25, 30], "f3-vend": [75, 30], "f3-wash": [50, 74], "f3-wifi-hangar": [50, 18], "f3-water-ground": [85, 74] },
+// Whole-campus map: named landmarks connected by real paths (not a straight line)
+const CAMPUS_NODES = {
+  "Main Gate": { x: 50, y: 92, icon: "gate" },
+  "Mess & Canteen": { x: 34, y: 66, icon: "mess" },
+  "Hostel Block": { x: 14, y: 42, icon: "hostel" },
+  "FET Block": { x: 46, y: 42, icon: "building" },
+  "Mechanical Block": { x: 67, y: 48, icon: "building" },
+  "Aerospace Block": { x: 82, y: 24, icon: "building" },
 };
-const TEACHER_PINS = {
-  "FET Block": { t1: [35, 16], t2: [65, 16] },
-  "PU Block": { t3: [35, 16], t4: [65, 16] },
-  "Aerospace Block": { t5: [35, 16], t6: [65, 16] },
-};
+const CAMPUS_EDGES = [
+  ["Main Gate", "Mess & Canteen"],
+  ["Mess & Canteen", "Hostel Block"],
+  ["Mess & Canteen", "FET Block"],
+  ["FET Block", "Mechanical Block"],
+  ["Mechanical Block", "Aerospace Block"],
+  ["FET Block", "Aerospace Block"],
+];
+const START_POINTS = ["Main Gate", "Hostel Block", "Mess & Canteen", "FET Block", "Mechanical Block", "Aerospace Block"];
+
+function findPath(start, end) {
+  if (start === end) return [start];
+  const adj = {};
+  CAMPUS_EDGES.forEach(([a, b]) => { (adj[a] = adj[a] || []).push(b); (adj[b] = adj[b] || []).push(a); });
+  const queue = [[start]];
+  const seen = new Set([start]);
+  while (queue.length) {
+    const path = queue.shift();
+    const node = path[path.length - 1];
+    if (node === end) return path;
+    (adj[node] || []).forEach((next) => { if (!seen.has(next)) { seen.add(next); queue.push([...path, next]); } });
+  }
+  return [start, end];
+}
+
 const TEACHERS = [
   { id: "t1", name: "Dr. Ramesh Iyer", dept: "Computer Science", floor: "FET Block", room: "Room 210" },
   { id: "t2", name: "Prof. Anitha Kumar", dept: "Electronics & Communication", floor: "FET Block", room: "Room 215" },
-  { id: "t3", name: "Dr. Suresh Rao", dept: "Mechanical Engineering", floor: "PU Block", room: "Room 118" },
-  { id: "t4", name: "Prof. Meena Nair", dept: "Civil Engineering", floor: "PU Block", room: "Room 122" },
+  { id: "t2b", name: "Dr. Kavya Reddy", dept: "Information Science", floor: "FET Block", room: "Room 230" },
+  { id: "t3", name: "Dr. Suresh Rao", dept: "Mechanical Engineering", floor: "Mechanical Block", room: "Room 118" },
+  { id: "t4", name: "Prof. Meena Nair", dept: "Civil Engineering", floor: "Mechanical Block", room: "Room 122" },
+  { id: "t4b", name: "Dr. Farhan Sheikh", dept: "Electrical Engineering", floor: "Mechanical Block", room: "Room 130" },
   { id: "t5", name: "Dr. Arvind Menon", dept: "Aerospace Engineering", floor: "Aerospace Block", room: "Hangar Office 3" },
   { id: "t6", name: "Prof. Divya Shetty", dept: "Avionics", floor: "Aerospace Block", room: "Hangar Office 5" },
 ];
-const FLOOR_ENTRANCE = { "FET Block": [50, 90], "PU Block": [50, 90], "Aerospace Block": [50, 90] };
-const BLOCK_SHORT = { "FET Block": "FET", "PU Block": "PU", "Aerospace Block": "Aero" };
+const BLOCK_SHORT = { "FET Block": "FET", "Mechanical Block": "Mech", "Aerospace Block": "Aero" };
 
 function defaultFacilities() {
   const now = Date.now();
   const mins = (n) => now - n * 60000;
   return [
+    // Charging
     { id: "f1-charge-104", name: "Room 104", floor: "FET Block", type: "charging", status: "ok", updatedAt: mins(12) },
     { id: "f1-charge-lib", name: "Library entrance", floor: "FET Block", type: "charging", status: "watch", updatedAt: mins(4) },
-    { id: "f2-charge-204", name: "Workshop corridor", floor: "PU Block", type: "charging", status: "ok", updatedAt: mins(18) },
+    { id: "f2-charge-204", name: "Workshop corridor", floor: "Mechanical Block", type: "charging", status: "ok", updatedAt: mins(18) },
+    { id: "f2-charge-sem", name: "Seminar hall", floor: "Mechanical Block", type: "charging", status: "watch", updatedAt: mins(26) },
     { id: "f3-charge-hall", name: "Design studio", floor: "Aerospace Block", type: "charging", status: "ok", updatedAt: mins(3) },
+    { id: "f3-charge-hangar", name: "Hangar lobby", floor: "Aerospace Block", type: "charging", status: "ok", updatedAt: mins(40) },
+    // Vending
     { id: "f1-vend-lobby", name: "Main lobby", floor: "FET Block", type: "vending", status: "ok", updatedAt: mins(30) },
-    { id: "f2-vend-lounge", name: "Faculty lounge", floor: "PU Block", type: "vending", status: "watch", updatedAt: mins(6) },
+    { id: "f1-vend-2f", name: "2nd floor corridor", floor: "FET Block", type: "vending", status: "ok", updatedAt: mins(50) },
+    { id: "f2-vend-lounge", name: "Faculty lounge", floor: "Mechanical Block", type: "vending", status: "watch", updatedAt: mins(6) },
+    { id: "f2-vend-entrance", name: "Workshop entrance", floor: "Mechanical Block", type: "vending", status: "ok", updatedAt: mins(70) },
     { id: "f3-vend", name: "Hangar lobby", floor: "Aerospace Block", type: "vending", status: "ok", updatedAt: mins(60) },
+    { id: "f3-vend-wing", name: "Design wing", floor: "Aerospace Block", type: "vending", status: "flagged", updatedAt: mins(15) },
+    // Washrooms
     { id: "f1-wash-a", name: "Ground floor", floor: "FET Block", type: "washroom", status: "ok", updatedAt: mins(90) },
-    { id: "f2-wash", name: "First floor", floor: "PU Block", type: "washroom", status: "watch", updatedAt: mins(45) },
+    { id: "f1-wash-b", name: "First floor", floor: "FET Block", type: "washroom", status: "ok", updatedAt: mins(35) },
+    { id: "f2-wash", name: "Ground floor", floor: "Mechanical Block", type: "washroom", status: "watch", updatedAt: mins(45) },
+    { id: "f2-wash-b", name: "First floor", floor: "Mechanical Block", type: "washroom", status: "ok", updatedAt: mins(65) },
     { id: "f3-wash", name: "Ground floor", floor: "Aerospace Block", type: "washroom", status: "flagged", updatedAt: mins(9) },
+    { id: "f3-wash-b", name: "First floor", floor: "Aerospace Block", type: "washroom", status: "ok", updatedAt: mins(55) },
+    // WiFi zones
     { id: "f1-wifi-lib", name: "Library wing", floor: "FET Block", type: "wifi", status: "ok", updatedAt: mins(8) },
-    { id: "f2-wifi-workshop", name: "Workshop area", floor: "PU Block", type: "wifi", status: "watch", updatedAt: mins(22) },
+    { id: "f1-wifi-main", name: "Main entrance", floor: "FET Block", type: "wifi", status: "ok", updatedAt: mins(20) },
+    { id: "f1-wifi-sem", name: "Seminar hall", floor: "FET Block", type: "wifi", status: "watch", updatedAt: mins(33) },
+    { id: "f2-wifi-workshop", name: "Workshop area", floor: "Mechanical Block", type: "wifi", status: "watch", updatedAt: mins(22) },
+    { id: "f2-wifi-lecture", name: "Lecture hall block", floor: "Mechanical Block", type: "wifi", status: "ok", updatedAt: mins(11) },
     { id: "f3-wifi-hangar", name: "Hangar lab", floor: "Aerospace Block", type: "wifi", status: "flagged", updatedAt: mins(15) },
+    { id: "f3-wifi-design", name: "Design studio", floor: "Aerospace Block", type: "wifi", status: "ok", updatedAt: mins(6) },
+    { id: "f3-wifi-admin", name: "Admin office", floor: "Aerospace Block", type: "wifi", status: "ok", updatedAt: mins(48) },
+    // Water coolers
     { id: "f1-water-canteen", name: "Near canteen", floor: "FET Block", type: "watercooler", status: "ok", updatedAt: mins(180), lastCleaned: mins(180) },
-    { id: "f2-water-corridor", name: "Main corridor", floor: "PU Block", type: "watercooler", status: "watch", updatedAt: mins(1800), lastCleaned: mins(1800) },
+    { id: "f1-water-2f", name: "2nd floor", floor: "FET Block", type: "watercooler", status: "ok", updatedAt: mins(240), lastCleaned: mins(240) },
+    { id: "f2-water-corridor", name: "Main corridor", floor: "Mechanical Block", type: "watercooler", status: "watch", updatedAt: mins(1800), lastCleaned: mins(1800) },
+    { id: "f2-water-workshop", name: "Workshop wing", floor: "Mechanical Block", type: "watercooler", status: "ok", updatedAt: mins(300), lastCleaned: mins(300) },
     { id: "f3-water-ground", name: "Ground floor", floor: "Aerospace Block", type: "watercooler", status: "flagged", updatedAt: mins(3000), lastCleaned: mins(3000) },
+    { id: "f3-water-hangar", name: "Hangar wing", floor: "Aerospace Block", type: "watercooler", status: "ok", updatedAt: mins(150), lastCleaned: mins(150) },
   ];
 }
 
@@ -198,56 +244,70 @@ function BlockGroupedList({ facilities, now, onRowClick }) {
   );
 }
 
-function MiniMap({ block, targetPin, entranceOverride }) {
-  const entrance = entranceOverride || FLOOR_ENTRANCE[block];
-  const routeInfo = useMemo(() => {
-    if (!entrance || !targetPin) return null;
-    const [ex, ey] = entrance;
-    const [px, py] = targetPin;
-    const pct = Math.hypot(px - ex, py - ey);
-    const meters = Math.max(4, Math.round(pct * 0.55));
-    const mins = Math.max(1, Math.round(meters / 70));
-    return { meters, mins };
-  }, [entrance, targetPin]);
+const NODE_ICON = { gate: DoorOpen, mess: UtensilsCrossed, hostel: BedDouble, building: Building2 };
+
+function CampusMap({ originName, destName }) {
+  const path = useMemo(() => findPath(originName, destName), [originName, destName]);
+  const points = path.map((n) => CAMPUS_NODES[n]);
+  const pointsAttr = points.map((p) => `${p.x},${p.y}`).join(" ");
+
+  const totalMeters = useMemo(() => {
+    let d = 0;
+    for (let i = 0; i < points.length - 1; i++) d += Math.hypot(points[i + 1].x - points[i].x, points[i + 1].y - points[i].y);
+    return Math.max(20, Math.round(d * 5));
+  }, [points]);
+  const mins = Math.max(1, Math.round(totalMeters / 70));
 
   return (
     <div>
-      <div style={{ position: "relative", width: "100%", paddingBottom: "52%", background: COLORS.bg, border: `1px solid ${COLORS.line}`, borderRadius: 14 }}>
+      <div style={{ position: "relative", width: "100%", paddingBottom: "68%", background: "linear-gradient(180deg, #EAF3E6, #DCEBD6)", border: "1px solid #C7D9C1", borderRadius: 16, overflow: "hidden" }}>
         <div style={{ position: "absolute", inset: 0 }}>
-          <div style={{ position: "absolute", left: "5%", right: "5%", top: "48%", height: "9%", background: COLORS.surface, border: `1px dashed ${COLORS.line}`, borderRadius: 4 }} />
-          <div style={{ position: "absolute", left: "5%", top: "10%", width: "40%", height: "27%", border: `1px solid ${COLORS.line}`, borderRadius: 6 }} />
-          <div style={{ position: "absolute", right: "5%", top: "10%", width: "40%", height: "27%", border: `1px solid ${COLORS.line}`, borderRadius: 6 }} />
-          <div style={{ position: "absolute", left: "16%", bottom: "6%", width: "68%", height: "22%", border: `1px solid ${COLORS.line}`, borderRadius: 6 }} />
+          {/* decorative greenery texture */}
+          {[[8, 15], [92, 55], [6, 78], [95, 85], [60, 8], [25, 8]].map(([x, y], i) => (
+            <div key={i} style={{ position: "absolute", left: `${x}%`, top: `${y}%`, width: 10, height: 10, borderRadius: "50%", background: "#B9D4AF", opacity: 0.6 }} />
+          ))}
 
-          <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
             <defs>
-              <marker id="ce-mm-arrow" markerWidth="6" markerHeight="6" refX="4.5" refY="3" orient="auto">
-                <path d="M0,0 L6,3 L0,6 z" fill={COLORS.teal} />
+              <marker id="ce-map-arrow" markerWidth="6" markerHeight="6" refX="4.5" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 z" fill="#1F6F5C" />
               </marker>
             </defs>
-            {entrance && targetPin && (
-              <line x1={entrance[0]} y1={entrance[1]} x2={targetPin[0]} y2={targetPin[1]} stroke={COLORS.teal} strokeWidth={0.9} strokeDasharray="2.4 1.8" markerEnd="url(#ce-mm-arrow)" className="ce-route" vectorEffect="non-scaling-stroke" />
-            )}
+            {/* faint full path network, like unhighlighted roads on a real map */}
+            {CAMPUS_EDGES.map(([a, b], i) => {
+              const pa = CAMPUS_NODES[a], pb = CAMPUS_NODES[b];
+              return <line key={i} x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y} stroke="#B9C9B2" strokeWidth={1.6} strokeLinecap="round" vectorEffect="non-scaling-stroke" />;
+            })}
+            {/* active highlighted route */}
+            <polyline points={pointsAttr} fill="none" stroke="#1F6F5C" strokeWidth={1.1} strokeDasharray="2.4 1.8" strokeLinejoin="round" strokeLinecap="round" markerEnd="url(#ce-map-arrow)" className="ce-route" vectorEffect="non-scaling-stroke" />
           </svg>
 
-          {entrance && (
-            <div style={{ position: "absolute", left: `${entrance[0]}%`, top: `${entrance[1]}%`, transform: "translate(-50%,-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-              <div style={{ width: 11, height: 11, borderRadius: "50%", background: COLORS.ink, border: `2px solid ${COLORS.surface}` }} />
-              <span style={{ fontSize: 8, fontFamily: "'IBM Plex Mono', monospace", color: COLORS.inkFaint }}>ENTRANCE</span>
-            </div>
-          )}
-          {targetPin && (
-            <div style={{ position: "absolute", left: `${targetPin[0]}%`, top: `${targetPin[1]}%`, transform: "translate(-50%,-50%)", width: 34, height: 34, borderRadius: "50%", background: COLORS.ink, border: `3px solid ${COLORS.surface}`, boxShadow: `0 0 0 4px ${COLORS.teal}40`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <User size={15} color={COLORS.bg} />
-            </div>
-          )}
+          {Object.entries(CAMPUS_NODES).map(([name, p]) => {
+            const isOrigin = name === originName;
+            const isDest = name === destName;
+            const Icon = NODE_ICON[p.icon] || Building2;
+            const size = isDest ? 30 : isOrigin ? 26 : 22;
+            return (
+              <div key={name} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, transform: "translate(-50%,-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, zIndex: isDest || isOrigin ? 3 : 2 }}>
+                <div className={isOrigin ? "ce-dot" : ""} style={{
+                  width: size, height: size, borderRadius: "50%",
+                  background: isOrigin ? "#1F6F5C" : isDest ? "#B3402C" : "#FFFFFF",
+                  border: `2.5px solid ${isOrigin || isDest ? "#fff" : "#B9C9B2"}`,
+                  boxShadow: "0 1px 5px rgba(0,0,0,0.28)", display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <Icon size={isDest ? 15 : 12} color={isOrigin || isDest ? "#fff" : "#5B6B60"} />
+                </div>
+                <span style={{ fontSize: 8.5, fontWeight: 700, color: "#33402F", background: "rgba(255,255,255,0.88)", padding: "1px 5px", borderRadius: 4, whiteSpace: "nowrap" }}>{name}</span>
+              </div>
+            );
+          })}
+
+          <div style={{ position: "absolute", top: 10, right: 12, fontSize: 11, fontWeight: 800, color: "#5B6B60", background: "rgba(255,255,255,0.75)", width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>N</div>
         </div>
       </div>
-      {routeInfo && (
-        <p style={{ margin: "8px 2px 0", fontSize: 12, color: COLORS.inkMuted }}>
-          ~{routeInfo.meters}m from the entrance · about {routeInfo.mins} min walk
-        </p>
-      )}
+      <p style={{ margin: "8px 2px 0", fontSize: 12, color: COLORS.inkMuted }}>
+        ~{totalMeters}m from {originName} · about {mins} min walk
+      </p>
     </div>
   );
 }
@@ -273,6 +333,7 @@ export default function CampusEase() {
 
   const [teacherQuery, setTeacherQuery] = useState("");
   const [openTeacherMap, setOpenTeacherMap] = useState(null);
+  const [originNode, setOriginNode] = useState(null);
 
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState(null);
@@ -289,18 +350,21 @@ export default function CampusEase() {
   }, []);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        setData(JSON.parse(raw));
-      } else {
-        const initial = { facilities: defaultFacilities(), reports: seedReports(), reservations: [] };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
-        setData(initial);
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) { if (!cancelled) setData(JSON.parse(raw)); }
+        else {
+          const initial = { facilities: defaultFacilities(), reports: seedReports(), reservations: [] };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+          if (!cancelled) setData(initial);
+        }
+      } catch (e) {
+        if (!cancelled) setData({ facilities: defaultFacilities(), reports: seedReports(), reservations: [] });
       }
-    } catch (e) {
-      setData({ facilities: defaultFacilities(), reports: seedReports(), reservations: [] });
-    }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const persist = (next) => {
@@ -407,7 +471,7 @@ export default function CampusEase() {
 
   const insights = useMemo(() => {
     const byType = { charging: 0, vending: 0, washroom: 0, wifi: 0, watercooler: 0 };
-    const byFloor = { "FET Block": 0, "PU Block": 0, "Aerospace Block": 0 };
+    const byFloor = { "FET Block": 0, "Mechanical Block": 0, "Aerospace Block": 0 };
     const perFacility = {};
     reports.forEach((r) => {
       const f = facility(r.facilityId);
@@ -643,7 +707,27 @@ export default function CampusEase() {
                               </div>
                               {open && (
                                 <div style={{ padding: "0 16px 16px" }}>
-                                  <MiniMap block={t.floor} targetPin={(TEACHER_PINS[t.floor] || {})[t.id]} />
+                                  {!originNode ? (
+                                    <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: 14 }}>
+                                      <p style={{ margin: "0 0 10px", fontSize: 12.5, fontWeight: 600, color: COLORS.ink }}>Where are you starting from?</p>
+                                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                        {START_POINTS.map((sp) => (
+                                          <button key={sp} className="ce-btn" onClick={() => setOriginNode(sp)} style={{ fontSize: 12, fontWeight: 500, padding: "7px 12px", borderRadius: 999, border: `1px solid ${COLORS.line}`, background: COLORS.panel, color: COLORS.ink }}>
+                                            {sp}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                                        <p style={{ margin: 0, fontSize: 11.5, color: COLORS.inkMuted }}>From <strong style={{ color: COLORS.ink }}>{originNode}</strong></p>
+                                        <button className="ce-btn" onClick={() => setOriginNode(null)} style={{ fontSize: 11, color: COLORS.teal, background: "none", border: "none", fontWeight: 600, padding: 0 }}>Change</button>
+                                      </div>
+                                      <CampusMap originName={originNode} destName={t.floor} />
+                                      <p style={{ margin: "8px 2px 0", fontSize: 12.5, color: COLORS.ink }}>Then head to <strong>{t.room}</strong>.</p>
+                                    </>
+                                  )}
                                 </div>
                               )}
                             </div>
