@@ -7,10 +7,10 @@ import {
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
-const STORAGE_KEY = "campusease-data-v7";
+const STORAGE_KEY = "campusease-data-v9";
 // Staff-only area: open the site with #staff at the end of the link. Change this PIN before sharing.
 const STAFF_PIN = "jain2026";
-const FLOORS = ["FET Block", "Mechanical Block", "Aerospace Block"];
+const FLOORS = ["FET Block", "Core Block", "Aerospace Block"];
 const CAMPUS = {
   name: "JAIN Global Campus",
   address: "Jakkasandra Post, Kanakapura Road, Ramanagara District, Bengaluru — 562112",
@@ -42,13 +42,12 @@ const TEACHERS = [
   { id: "t1", name: "Dr. Ramesh Iyer", dept: "Computer Science", floor: "FET Block", room: "Room 210" },
   { id: "t2", name: "Prof. Anitha Kumar", dept: "Electronics & Communication", floor: "FET Block", room: "Room 215" },
   { id: "t2b", name: "Dr. Kavya Reddy", dept: "Information Science", floor: "FET Block", room: "Room 230" },
-  { id: "t3", name: "Dr. Suresh Rao", dept: "Mechanical Engineering", floor: "Mechanical Block", room: "Room 118" },
-  { id: "t4", name: "Prof. Meena Nair", dept: "Civil Engineering", floor: "Mechanical Block", room: "Room 122" },
-  { id: "t4b", name: "Dr. Farhan Sheikh", dept: "Electrical Engineering", floor: "Mechanical Block", room: "Room 130" },
+  { id: "t7", name: "Dr. Nisha Patil", dept: "Mathematics", floor: "Core Block", room: "Room 105" },
+  { id: "t8", name: "Prof. Rohan Gupta", dept: "Physics", floor: "Core Block", room: "Room 112" },
   { id: "t5", name: "Dr. Arvind Menon", dept: "Aerospace Engineering", floor: "Aerospace Block", room: "Hangar Office 3" },
   { id: "t6", name: "Prof. Divya Shetty", dept: "Avionics", floor: "Aerospace Block", room: "Hangar Office 5" },
 ];
-const BLOCK_SHORT = { "FET Block": "FET", "Mechanical Block": "Mech", "Aerospace Block": "Aero" };
+const BLOCK_SHORT = { "FET Block": "FET", "Core Block": "Core", "Aerospace Block": "Aero" };
 
 function defaultFacilities() {
   const now = Date.now();
@@ -57,40 +56,40 @@ function defaultFacilities() {
     // Charging
     { id: "f1-charge-104", name: "Room 104", floor: "FET Block", type: "charging", status: "ok", updatedAt: mins(12) },
     { id: "f1-charge-lib", name: "Library entrance", floor: "FET Block", type: "charging", status: "watch", updatedAt: mins(4) },
-    { id: "f2-charge-204", name: "Workshop corridor", floor: "Mechanical Block", type: "charging", status: "ok", updatedAt: mins(18) },
-    { id: "f2-charge-sem", name: "Seminar hall", floor: "Mechanical Block", type: "charging", status: "watch", updatedAt: mins(26) },
     { id: "f3-charge-hall", name: "Design studio", floor: "Aerospace Block", type: "charging", status: "ok", updatedAt: mins(3) },
     { id: "f3-charge-hangar", name: "Hangar lobby", floor: "Aerospace Block", type: "charging", status: "ok", updatedAt: mins(40) },
     // Vending
     { id: "f1-vend-lobby", name: "Main lobby", floor: "FET Block", type: "vending", status: "ok", updatedAt: mins(30) },
     { id: "f1-vend-2f", name: "2nd floor corridor", floor: "FET Block", type: "vending", status: "ok", updatedAt: mins(50) },
-    { id: "f2-vend-lounge", name: "Faculty lounge", floor: "Mechanical Block", type: "vending", status: "watch", updatedAt: mins(6) },
-    { id: "f2-vend-entrance", name: "Workshop entrance", floor: "Mechanical Block", type: "vending", status: "ok", updatedAt: mins(70) },
     { id: "f3-vend", name: "Hangar lobby", floor: "Aerospace Block", type: "vending", status: "ok", updatedAt: mins(60) },
     { id: "f3-vend-wing", name: "Design wing", floor: "Aerospace Block", type: "vending", status: "flagged", updatedAt: mins(15) },
     // Washrooms
     { id: "f1-wash-a", name: "Ground floor", floor: "FET Block", type: "washroom", status: "ok", updatedAt: mins(90) },
     { id: "f1-wash-b", name: "First floor", floor: "FET Block", type: "washroom", status: "ok", updatedAt: mins(35) },
-    { id: "f2-wash", name: "Ground floor", floor: "Mechanical Block", type: "washroom", status: "watch", updatedAt: mins(45) },
-    { id: "f2-wash-b", name: "First floor", floor: "Mechanical Block", type: "washroom", status: "ok", updatedAt: mins(65) },
     { id: "f3-wash", name: "Ground floor", floor: "Aerospace Block", type: "washroom", status: "flagged", updatedAt: mins(9) },
     { id: "f3-wash-b", name: "First floor", floor: "Aerospace Block", type: "washroom", status: "ok", updatedAt: mins(55) },
     // WiFi zones
     { id: "f1-wifi-lib", name: "Library wing", floor: "FET Block", type: "wifi", status: "ok", updatedAt: mins(8) },
     { id: "f1-wifi-main", name: "Main entrance", floor: "FET Block", type: "wifi", status: "ok", updatedAt: mins(20) },
     { id: "f1-wifi-sem", name: "Seminar hall", floor: "FET Block", type: "wifi", status: "watch", updatedAt: mins(33) },
-    { id: "f2-wifi-workshop", name: "Workshop area", floor: "Mechanical Block", type: "wifi", status: "watch", updatedAt: mins(22) },
-    { id: "f2-wifi-lecture", name: "Lecture hall block", floor: "Mechanical Block", type: "wifi", status: "ok", updatedAt: mins(11) },
     { id: "f3-wifi-hangar", name: "Hangar lab", floor: "Aerospace Block", type: "wifi", status: "flagged", updatedAt: mins(15) },
     { id: "f3-wifi-design", name: "Design studio", floor: "Aerospace Block", type: "wifi", status: "ok", updatedAt: mins(6) },
     { id: "f3-wifi-admin", name: "Admin office", floor: "Aerospace Block", type: "wifi", status: "ok", updatedAt: mins(48) },
     // Water coolers
     { id: "f1-water-canteen", name: "Near canteen", floor: "FET Block", type: "watercooler", status: "ok", updatedAt: mins(180), lastCleaned: mins(180) },
     { id: "f1-water-2f", name: "2nd floor", floor: "FET Block", type: "watercooler", status: "ok", updatedAt: mins(240), lastCleaned: mins(240) },
-    { id: "f2-water-corridor", name: "Main corridor", floor: "Mechanical Block", type: "watercooler", status: "watch", updatedAt: mins(1800), lastCleaned: mins(1800) },
-    { id: "f2-water-workshop", name: "Workshop wing", floor: "Mechanical Block", type: "watercooler", status: "ok", updatedAt: mins(300), lastCleaned: mins(300) },
     { id: "f3-water-ground", name: "Ground floor", floor: "Aerospace Block", type: "watercooler", status: "flagged", updatedAt: mins(3000), lastCleaned: mins(3000) },
     { id: "f3-water-hangar", name: "Hangar wing", floor: "Aerospace Block", type: "watercooler", status: "ok", updatedAt: mins(150), lastCleaned: mins(150) },
+    // Core Block
+    { id: "fc-charge-lobby", name: "Main lobby", floor: "Core Block", type: "charging", status: "ok", updatedAt: mins(9) },
+    { id: "fc-charge-lib", name: "Reading hall", floor: "Core Block", type: "charging", status: "ok", updatedAt: mins(22) },
+    { id: "fc-vend-lobby", name: "Main lobby", floor: "Core Block", type: "vending", status: "ok", updatedAt: mins(35) },
+    { id: "fc-wash-a", name: "Ground floor", floor: "Core Block", type: "washroom", status: "ok", updatedAt: mins(40) },
+    { id: "fc-wash-b", name: "First floor", floor: "Core Block", type: "washroom", status: "watch", updatedAt: mins(25) },
+    { id: "fc-wifi-hall", name: "Lecture halls", floor: "Core Block", type: "wifi", status: "ok", updatedAt: mins(10) },
+    { id: "fc-wifi-lib", name: "Reading hall", floor: "Core Block", type: "wifi", status: "watch", updatedAt: mins(30) },
+    { id: "fc-water-lobby", name: "Main lobby", floor: "Core Block", type: "watercooler", status: "ok", updatedAt: mins(210), lastCleaned: mins(210) },
+    { id: "fc-water-1f", name: "1st floor", floor: "Core Block", type: "watercooler", status: "ok", updatedAt: mins(260), lastCleaned: mins(260) },
   ];
 }
 
@@ -99,7 +98,6 @@ function seedReports() {
   const hrs = (n) => now - n * 3600000;
   return [
     { id: "seed-1", facilityId: "f3-wash", note: "Fan isn't working, feels stuffy.", timestamp: hrs(2), status: "open" },
-    { id: "seed-2", facilityId: "f2-vend-lounge", note: "Running low on chips and drinks.", timestamp: hrs(5), status: "open" },
     { id: "seed-3", facilityId: "f1-charge-lib", note: "Two of the four ports are dead.", timestamp: hrs(30), status: "resolved", resolvedAt: hrs(28) },
     { id: "seed-4", facilityId: "f3-wash", note: "Tap was leaking near sink 2.", timestamp: hrs(50), status: "resolved", resolvedAt: hrs(47) },
     { id: "seed-5", facilityId: "f1-vend-lobby", note: "Coin slot jammed.", timestamp: hrs(70), status: "resolved", resolvedAt: hrs(69) },
@@ -168,11 +166,11 @@ function Screen({ title, subtitle, onBack, onReport, now, children }) {
   );
 }
 
-function FacilityRow({ f, now, onClick }) {
+function FacilityRow({ f, now, onClick, showBlock }) {
   const meta = TYPE_META[f.type];
   const Icon = meta.icon;
   return (
-    <button className="ce-btn" onClick={onClick} style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", background: COLORS.panel, borderRadius: 14, border: `1px solid ${COLORS.line}` }}>
+    <button className="ce-btn" onClick={onClick} style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", background: COLORS.panel, borderRadius: 14, border: `1px solid ${COLORS.line}`, borderLeft: `4px solid ${statusColor(f.status)}` }}>
       <div style={{ width: 42, height: 42, borderRadius: 11, background: statusBg(f.status), display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, position: "relative" }}>
         <Icon size={20} color={statusColor(f.status)} />
         {f.status === "flagged" && <span className="ce-dot" style={{ position: "absolute", top: -2, right: -2, width: 9, height: 9, borderRadius: "50%", background: COLORS.coral }} />}
@@ -182,7 +180,7 @@ function FacilityRow({ f, now, onClick }) {
         {f.type === "watercooler" ? (
           <p style={{ margin: "2px 0 0", fontSize: 12, color: COLORS.inkMuted }}>Last cleaned {formatRelative(f.lastCleaned, now)}</p>
         ) : (
-          <p style={{ margin: "2px 0 0", fontSize: 12, color: COLORS.inkMuted }}>Updated {formatRelative(f.updatedAt, now)}</p>
+          <p style={{ margin: "2px 0 0", fontSize: 12, color: COLORS.inkMuted }}>{showBlock ? `${f.floor} · ` : ""}Updated {formatRelative(f.updatedAt, now)}</p>
         )}
       </div>
       <span style={{ fontSize: 12, fontWeight: 700, color: statusColor(f.status), background: statusBg(f.status), padding: "6px 12px", borderRadius: 999, flexShrink: 0 }}>
@@ -190,6 +188,79 @@ function FacilityRow({ f, now, onClick }) {
       </span>
       <ChevronRight size={16} color={COLORS.inkFaint} style={{ flexShrink: 0 }} />
     </button>
+  );
+}
+
+const BLOCK_ACCENT = { "FET Block": "#3FD8AC", "Core Block": "#7AA2FF", "Aerospace Block": "#FF8FA3" };
+
+// Step 1: pick a block. Step 2: see that block's facilities.
+function BlockBrowser({ facilities, now, block, setBlock, onRowClick, labels }) {
+  if (!block) {
+    return (
+      <div>
+        <p style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 600, color: COLORS.inkMuted }}>Choose a block</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 14 }}>
+          {FLOORS.map((fl) => {
+            const items = facilities.filter((f) => f.floor === fl);
+            const ok = items.filter((f) => f.status === "ok").length;
+            const bad = items.length - ok;
+            const accent = BLOCK_ACCENT[fl] || COLORS.teal;
+            return (
+              <button key={fl} className="ce-btn ce-tile" onClick={() => setBlock(fl)}
+                style={{ textAlign: "left", padding: 18, borderRadius: 18, border: `1px solid ${COLORS.line}`, background: COLORS.panel, display: "flex", flexDirection: "column", gap: 14, position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: accent }} />
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ width: 46, height: 46, borderRadius: 14, background: accent + "26", color: accent, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 19 }}>{fl[0]}</div>
+                  <ChevronRight size={18} color={COLORS.inkFaint} />
+                </div>
+                <div>
+                  <p style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{fl}</p>
+                  <p style={{ margin: "3px 0 0", fontSize: 12.5, color: COLORS.inkMuted }}>{items.length} {items.length === 1 ? "spot" : "spots"}</p>
+                </div>
+                <div>
+                  <div style={{ height: 6, borderRadius: 999, background: COLORS.line, overflow: "hidden" }}>
+                    <div style={{ width: items.length ? `${(ok / items.length) * 100}%` : "0%", height: "100%", background: COLORS.teal, borderRadius: 999 }} />
+                  </div>
+                  <p style={{ margin: "7px 0 0", fontSize: 12, fontWeight: 600, color: bad ? COLORS.amber : COLORS.teal }}>
+                    {items.length === 0 ? "Nothing here yet" : bad === 0 ? "All working" : `${ok} working · ${bad} need attention`}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+  const items = facilities.filter((f) => f.floor === block);
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 6, marginBottom: 14 }}>
+        <button className="ce-btn" onClick={() => setBlock(null)} style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0, fontSize: 12.5, fontWeight: 600, padding: "8px 13px", borderRadius: 999, border: `1px solid ${COLORS.line}`, background: COLORS.surface, color: COLORS.inkMuted }}>
+          <ArrowLeft size={13} /> All blocks
+        </button>
+        {FLOORS.map((fl) => (
+          <button key={fl} className="ce-btn" onClick={() => setBlock(fl)} style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 600, padding: "8px 14px", borderRadius: 999, border: `1px solid ${block === fl ? COLORS.teal : COLORS.line}`, background: block === fl ? COLORS.tealBg : COLORS.surface, color: block === fl ? COLORS.teal : COLORS.ink }}>
+            {fl}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+        {["ok", "watch", "flagged"].map((st) => {
+          const n = items.filter((f) => f.status === st).length;
+          return <span key={st} style={{ fontSize: 12, fontWeight: 700, color: statusColor(st), background: statusBg(st), padding: "6px 12px", borderRadius: 999 }}>{n} {labels[st].toLowerCase()}</span>;
+        })}
+      </div>
+      {items.length === 0 ? (
+        <div style={{ padding: "28px 18px", textAlign: "center", border: `1px dashed ${COLORS.line}`, borderRadius: 14, color: COLORS.inkMuted, fontSize: 13 }}>
+          Nothing listed in {block} yet. Pick another block above.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {items.map((f) => <FacilityRow key={f.id} f={f} now={now} onClick={() => onRowClick(f)} />)}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -231,7 +302,7 @@ const START_X = { entrance: LOBBY_X, stairs: STAIRS.x, lift: LIFT.x, canteen: 17
 // Each teacher's cabin: level (0 = ground), side of corridor, slot index
 const TEACHER_ROOMS = {
   t1: { level: 2, side: "top", slot: 1 }, t2: { level: 2, side: "top", slot: 2 }, t2b: { level: 2, side: "bot", slot: 0 },
-  t3: { level: 1, side: "top", slot: 0 }, t4: { level: 1, side: "top", slot: 3 }, t4b: { level: 1, side: "bot", slot: 3 },
+  t7: { level: 1, side: "top", slot: 1 }, t8: { level: 1, side: "bot", slot: 2 },
   t5: { level: 0, side: "top", slot: 1 }, t6: { level: 0, side: "top", slot: 2 },
 };
 const LEVEL_NAME = ["Ground floor", "1st floor", "2nd floor"];
@@ -379,6 +450,9 @@ export default function CampusEase() {
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState("");
 
+  const [homeQuery, setHomeQuery] = useState("");
+  const [block, setBlock] = useState(null);
+  useEffect(() => { setBlock(null); }, [screen]);
   const [teacherQuery, setTeacherQuery] = useState("");
   const [openTeacherMap, setOpenTeacherMap] = useState(null);
 
@@ -523,7 +597,7 @@ export default function CampusEase() {
 
   const insights = useMemo(() => {
     const byType = { charging: 0, vending: 0, washroom: 0, wifi: 0, watercooler: 0 };
-    const byFloor = { "FET Block": 0, "Mechanical Block": 0, "Aerospace Block": 0 };
+    const byFloor = { "FET Block": 0, "Core Block": 0, "Aerospace Block": 0 };
     const perFacility = {};
     reports.forEach((r) => {
       const f = facility(r.facilityId);
@@ -623,10 +697,10 @@ export default function CampusEase() {
     <div className="ce-app" style={{ background: COLORS.bg, minHeight: "100vh", fontFamily: "'Inter', system-ui, sans-serif", color: COLORS.ink }}>
       <style>{`
         .ce-app { display: flex; }
-        .ce-btn { transition: transform 0.1s ease, background 0.15s ease, border-color 0.15s ease; cursor: pointer; }
+        .ce-btn { color: ${COLORS.ink}; font-family: inherit; transition: transform 0.1s ease, background 0.15s ease, border-color 0.15s ease; cursor: pointer; }
         .ce-btn:active { transform: scale(0.97); }
         .ce-btn:focus-visible, .ce-input:focus-visible, .ce-select:focus-visible, .ce-textarea:focus-visible { outline: 2px solid ${COLORS.teal}; outline-offset: 2px; }
-        .ce-input, .ce-select, .ce-textarea { font-family: inherit; font-size: 14px; color: ${COLORS.ink}; background: ${COLORS.surface}; border: 1px solid ${COLORS.line}; border-radius: 10px; padding: 10px 12px; width: 100%; }
+        .ce-input, .ce-select, .ce-textarea { box-sizing: border-box; font-family: inherit; font-size: 14px; color: ${COLORS.ink}; background: ${COLORS.surface}; border: 1px solid ${COLORS.line}; border-radius: 10px; padding: 10px 12px; width: 100%; }
         .ce-fade { animation: ceFadeIn 0.2s ease; }
         @keyframes ceFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         .ce-dot { animation: ceDot 1.6s ease-in-out infinite; }
@@ -642,7 +716,16 @@ export default function CampusEase() {
         .ce-nav-item.active { background: ${COLORS.tealBg}; color: ${COLORS.teal}; }
         .ce-main { flex: 1; min-width: 0; padding: 28px 36px 60px; max-width: 980px; }
         .ce-tile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+        .ce-bottomnav { display: none; }
+        .ce-stagger > * { animation: ceFadeIn 0.35s ease both; }
+        .ce-stagger > *:nth-child(2) { animation-delay: 0.04s; } .ce-stagger > *:nth-child(3) { animation-delay: 0.08s; } .ce-stagger > *:nth-child(4) { animation-delay: 0.12s; }
+        .ce-stagger > *:nth-child(5) { animation-delay: 0.16s; } .ce-stagger > *:nth-child(6) { animation-delay: 0.2s; } .ce-stagger > *:nth-child(7) { animation-delay: 0.24s; } .ce-stagger > *:nth-child(8) { animation-delay: 0.28s; }
         @media (max-width: 880px) {
+          .ce-sidebar nav { display: none !important; }
+          .ce-bottomnav { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: ${COLORS.surface}; border-top: 1px solid ${COLORS.line}; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); justify-content: space-around; }
+          .ce-bottomnav button { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; padding: 6px 0; border: none; background: none; font-size: 11px; font-weight: 600; color: ${COLORS.inkMuted}; border-radius: 10px; }
+          .ce-bottomnav button.active { color: ${COLORS.teal}; }
+          .ce-main { padding-bottom: 96px !important; }
           .ce-app { flex-direction: column; }
           .ce-sidebar { width: 100%; height: auto; position: static; flex-direction: row; align-items: center; padding: 14px 18px; }
           .ce-brand { margin-bottom: 0; margin-right: auto; }
@@ -666,6 +749,15 @@ export default function CampusEase() {
             <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>
           </button>
         </aside>
+      )}
+
+      {entered && (
+        <nav className="ce-bottomnav" aria-label="Main">
+          {[{ id: "home", label: "Home", icon: HomeIcon, go: goHome }, { id: "teachers", label: "Teachers", icon: GraduationCap, go: () => setScreen("teachers") }, { id: "scan", label: "Scan", icon: Camera, go: () => setScreen("scan") }, { id: "report", label: "Report", icon: Flag, go: () => goReport("") }].map((n) => {
+            const NI = n.icon;
+            return <button key={n.id} className={`ce-btn ${screen === n.id ? "active" : ""}`} onClick={n.go}><NI size={20} /><span>{n.label}</span></button>;
+          })}
+        </nav>
       )}
 
       {!entered ? (
@@ -693,6 +785,10 @@ export default function CampusEase() {
 
           {data && screen === "home" && (
             <div className="ce-fade">
+              <div style={{ borderRadius: 20, padding: "22px 22px 20px", marginBottom: 20, background: `linear-gradient(135deg, ${COLORS.tealBg}, ${COLORS.panel})`, border: `1px solid ${COLORS.line}` }}>
+                <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: COLORS.teal }}>{CAMPUS.name}</p>
+                <p style={{ margin: "4px 0 0", fontFamily: "'Space Grotesk', 'Inter', sans-serif", fontSize: 20, fontWeight: 700 }}>{CAMPUS.slogan}</p>
+              </div>
               <h1 style={{ margin: "0 0 4px", fontFamily: "'Space Grotesk', 'Inter', system-ui, sans-serif", fontSize: 28, fontWeight: 700, letterSpacing: "-0.01em" }}>{new Date(now).getHours() < 12 ? "Good morning" : new Date(now).getHours() < 17 ? "Good afternoon" : "Good evening"} 👋</h1>
               <p style={{ margin: "0 0 20px", fontSize: 14, color: COLORS.inkMuted }}>What do you need right now?</p>
 
@@ -709,7 +805,32 @@ export default function CampusEase() {
                 ))}
               </div>
 
-              {nearestFreeCharging && (
+              <div style={{ position: "relative", marginBottom: 16 }}>
+                <Search size={16} color={COLORS.inkMuted} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
+                <input className="ce-input" style={{ paddingLeft: 40, height: 46, borderRadius: 14, fontSize: 14.5 }} placeholder="Search a place, facility or teacher" value={homeQuery} onChange={(e) => setHomeQuery(e.target.value)} />
+                {homeQuery && <button className="ce-btn" aria-label="Clear search" onClick={() => setHomeQuery("")} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", border: "none", background: "none", padding: 6 }}><X size={16} color={COLORS.inkMuted} /></button>}
+              </div>
+
+              {homeQuery.trim() && (() => {
+                const q = homeQuery.trim().toLowerCase();
+                const fm = facilities.filter((f) => `${f.name} ${f.floor} ${TYPE_META[f.type].noun} ${f.type}`.toLowerCase().includes(q)).slice(0, 8);
+                const tm = TEACHERS.filter((t) => `${t.name} ${t.dept} ${t.room} ${t.floor}`.toLowerCase().includes(q)).slice(0, 5);
+                return (
+                  <div className="ce-fade" style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+                    {fm.length === 0 && tm.length === 0 && <p style={{ fontSize: 13, color: COLORS.inkMuted }}>No matches for "{homeQuery}". Try "wifi", "Core" or a teacher's name.</p>}
+                    {fm.map((f) => <FacilityRow key={f.id} f={f} now={now} showBlock onClick={() => goReport(f.id)} />)}
+                    {tm.map((t) => (
+                      <button key={t.id} className="ce-btn" onClick={() => { setOpenTeacherMap(t.id); setScreen("teachers"); }} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", textAlign: "left", background: COLORS.panel, borderRadius: 14, border: `1px solid ${COLORS.line}` }}>
+                        <div style={{ width: 42, height: 42, borderRadius: 11, background: COLORS.tealBg, display: "flex", alignItems: "center", justifyContent: "center" }}><User size={19} color={COLORS.teal} /></div>
+                        <div style={{ flex: 1 }}><p style={{ margin: 0, fontSize: 14.5, fontWeight: 600 }}>{t.name}</p><p style={{ margin: "2px 0 0", fontSize: 12, color: COLORS.inkMuted }}>{t.dept} · {t.floor}, {t.room}</p></div>
+                        <Navigation size={15} color={COLORS.teal} />
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {!homeQuery.trim() && nearestFreeCharging && (
                 <button className="ce-btn" onClick={() => setScreen("charging")} style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 12, background: COLORS.panel, border: `1px solid ${COLORS.line}`, borderRadius: 14, padding: "12px 16px", marginBottom: 20 }}>
                   <div style={{ width: 34, height: 34, borderRadius: 10, background: COLORS.tealBg, display: "flex", alignItems: "center", justifyContent: "center" }}><Zap size={16} color={COLORS.teal} /></div>
                   <p style={{ margin: 0, fontSize: 13, flex: 1, color: COLORS.ink }}>Nearest free charging bay: <strong>{nearestFreeCharging.name}</strong>, {nearestFreeCharging.floor}</p>
@@ -717,7 +838,7 @@ export default function CampusEase() {
                 </button>
               )}
 
-              <div className="ce-tile-grid">
+              {!homeQuery.trim() && <div className="ce-tile-grid ce-stagger">
                 {HOME_TILES.map((t) => {
                   const Icon = t.icon;
                   return (
@@ -735,19 +856,13 @@ export default function CampusEase() {
                     </button>
                   );
                 })}
-              </div>
+              </div>}
             </div>
           )}
 
           {data && (screen === "charging" || screen === "vending" || screen === "washroom" || screen === "wifi") && (
-            <Screen title={TYPE_META[screen].noun + "s"} subtitle={`Live status across all three blocks.`} onBack={goHome} onReport={() => goReport("")} now={now}>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
-                {["ok", "watch", "flagged"].map((st) => {
-                  const n = facilities.filter((f) => f.type === screen && f.status === st).length;
-                  return <span key={st} style={{ fontSize: 12, fontWeight: 700, color: statusColor(st), background: statusBg(st), padding: "6px 12px", borderRadius: 999 }}>{n} {TYPE_META[screen].labels[st].toLowerCase()}</span>;
-                })}
-              </div>
-              <BlockGroupedList facilities={facilities.filter((f) => f.type === screen)} now={now} onRowClick={(f) => goReport(f.id)} />
+            <Screen title={TYPE_META[screen].noun + "s"} subtitle="Pick a block to see what's available right now." onBack={goHome} onReport={() => goReport("")} now={now}>
+              <BlockBrowser facilities={facilities.filter((f) => f.type === screen)} now={now} block={block} setBlock={setBlock} onRowClick={(f) => goReport(f.id)} labels={TYPE_META[screen].labels} />
             </Screen>
           )}
 
@@ -756,7 +871,7 @@ export default function CampusEase() {
               <button className="ce-btn" onClick={() => setScreen("scan")} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, fontSize: 13, fontWeight: 600, padding: "11px 18px", borderRadius: 11, border: "none", background: COLORS.teal, color: "#0F1216" }}>
                 <Camera size={15} /> Scan a cooler's QR code
               </button>
-              <BlockGroupedList facilities={facilities.filter((f) => f.type === "watercooler")} now={now} onRowClick={(f) => goReport(f.id)} />
+              <BlockBrowser facilities={facilities.filter((f) => f.type === "watercooler")} now={now} block={block} setBlock={setBlock} onRowClick={(f) => goReport(f.id)} labels={TYPE_META.watercooler.labels} />
             </Screen>
           )}
 
