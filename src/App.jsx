@@ -8,6 +8,8 @@ import {
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 const STORAGE_KEY = "campusease-data-v7";
+// Staff-only area: open the site with #staff at the end of the link. Change this PIN before sharing.
+const STAFF_PIN = "jain2026";
 const FLOORS = ["FET Block", "Mechanical Block", "Aerospace Block"];
 const CAMPUS = {
   name: "JAIN Global Campus",
@@ -373,6 +375,10 @@ export default function CampusEase() {
   const [reserveSlot, setReserveSlot] = useState("");
   const [reserveError, setReserveError] = useState("");
 
+  const [staffOk, setStaffOk] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState("");
+
   const [teacherQuery, setTeacherQuery] = useState("");
   const [openTeacherMap, setOpenTeacherMap] = useState(null);
 
@@ -384,6 +390,13 @@ export default function CampusEase() {
   const streamRef = useRef(null);
   const scanLoopRef = useRef(false);
   const scanSupported = typeof window !== "undefined" && "BarcodeDetector" in window;
+
+  useEffect(() => {
+    const check = () => { if (window.location.hash === "#staff") { setEntered(true); setScreen("admin"); } };
+    check();
+    window.addEventListener("hashchange", check);
+    return () => window.removeEventListener("hashchange", check);
+  }, []);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 30000);
@@ -603,7 +616,7 @@ export default function CampusEase() {
     if (list.length === 0) return null;
     return bad === 0 ? { text: "All good", color: COLORS.teal, bg: COLORS.tealBg } : { text: `${bad} issue${bad > 1 ? "s" : ""}`, color: COLORS.amber, bg: COLORS.amberBg };
   };
-  const goHome = () => { setScreen("home"); setScanResult(null); setScanError(""); stopScanning(); };
+  const goHome = () => { if (window.location.hash === "#staff") window.history.replaceState(null, "", window.location.pathname + window.location.search); setStaffOk(false); setPinInput(""); setScreen("home"); setScanResult(null); setScanError(""); stopScanning(); };
   const goReport = (facilityId) => { if (facilityId) setReportFacility(facilityId); setScreen("report"); };
 
   return (
@@ -647,7 +660,6 @@ export default function CampusEase() {
           </div>
           <nav style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1 }}>
             <button className={`ce-btn ce-nav-item ${screen === "home" ? "active" : ""}`} onClick={goHome}><HomeIcon size={17} /><span>Home</span></button>
-            <button className={`ce-btn ce-nav-item ${screen === "admin" ? "active" : ""}`} onClick={() => setScreen("admin")}><ShieldCheck size={17} /><span>Staff Admin</span></button>
           </nav>
           <button className="ce-btn" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", borderRadius: 10, border: `1px solid ${COLORS.line}`, background: "none", color: COLORS.inkMuted, fontSize: 12.5, fontWeight: 500 }}>
             {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
@@ -924,7 +936,17 @@ export default function CampusEase() {
             </Screen>
           )}
 
-          {data && screen === "admin" && (
+          {data && screen === "admin" && !staffOk && (
+            <Screen title="Staff sign-in" subtitle="This area is for campus staff only." onBack={goHome} onReport={null} now={now}>
+              <form onSubmit={(e) => { e.preventDefault(); if (pinInput === STAFF_PIN) { setStaffOk(true); setPinError(""); } else setPinError("That PIN isn't right. Try again."); }} style={{ maxWidth: 340, display: "flex", flexDirection: "column", gap: 12 }}>
+                <input className="ce-input" type="password" autoFocus placeholder="Staff PIN" value={pinInput} onChange={(e) => setPinInput(e.target.value)} />
+                {pinError && <p style={{ margin: 0, fontSize: 12.5, color: COLORS.coral }}>{pinError}</p>}
+                <button className="ce-btn" type="submit" style={{ padding: "11px 0", borderRadius: 11, border: "none", background: COLORS.teal, color: "#0F1216", fontSize: 14, fontWeight: 700 }}>Sign in</button>
+              </form>
+            </Screen>
+          )}
+
+          {data && screen === "admin" && staffOk && (
             <Screen title="Staff Admin" subtitle="Open issues, QR codes, and trends." onBack={goHome} onReport={null} now={now}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: COLORS.panel, border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: "12px 16px", marginBottom: 22 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
