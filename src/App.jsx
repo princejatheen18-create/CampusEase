@@ -3,7 +3,7 @@ import {
   Zap, Cookie, Wind, Wifi, Droplets, Flag, Clock, Check, X, CheckCircle2,
   TrendingUp, Building2, Plus, Moon, Sun, Sparkles, User, GraduationCap,
   QrCode, Navigation, Camera, ArrowLeft, Home as HomeIcon, ShieldCheck,
-  Search, ChevronRight, AlertCircle, DoorOpen, UtensilsCrossed, BedDouble,
+  Search, ChevronRight, AlertCircle,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
@@ -35,40 +35,6 @@ const TYPE_META = {
   wifi: { icon: Wifi, noun: "WiFi zone", labels: { ok: "Strong signal", watch: "Weak signal", flagged: "No signal" } },
   watercooler: { icon: Droplets, noun: "Water cooler", labels: { ok: "Clean", watch: "Due for cleaning", flagged: "Needs cleaning" } },
 };
-
-// Whole-campus map: named landmarks connected by real paths (not a straight line)
-const CAMPUS_NODES = {
-  "Main Gate": { x: 50, y: 92, icon: "gate" },
-  "Mess & Canteen": { x: 34, y: 66, icon: "mess" },
-  "Hostel Block": { x: 14, y: 42, icon: "hostel" },
-  "FET Block": { x: 46, y: 42, icon: "building" },
-  "Mechanical Block": { x: 67, y: 48, icon: "building" },
-  "Aerospace Block": { x: 82, y: 24, icon: "building" },
-};
-const CAMPUS_EDGES = [
-  ["Main Gate", "Mess & Canteen"],
-  ["Mess & Canteen", "Hostel Block"],
-  ["Mess & Canteen", "FET Block"],
-  ["FET Block", "Mechanical Block"],
-  ["Mechanical Block", "Aerospace Block"],
-  ["FET Block", "Aerospace Block"],
-];
-const START_POINTS = ["Main Gate", "Hostel Block", "Mess & Canteen", "FET Block", "Mechanical Block", "Aerospace Block"];
-
-function findPath(start, end) {
-  if (start === end) return [start];
-  const adj = {};
-  CAMPUS_EDGES.forEach(([a, b]) => { (adj[a] = adj[a] || []).push(b); (adj[b] = adj[b] || []).push(a); });
-  const queue = [[start]];
-  const seen = new Set([start]);
-  while (queue.length) {
-    const path = queue.shift();
-    const node = path[path.length - 1];
-    if (node === end) return path;
-    (adj[node] || []).forEach((next) => { if (!seen.has(next)) { seen.add(next); queue.push([...path, next]); } });
-  }
-  return [start, end];
-}
 
 const TEACHERS = [
   { id: "t1", name: "Dr. Ramesh Iyer", dept: "Computer Science", floor: "FET Block", room: "Room 210" },
@@ -244,70 +210,146 @@ function BlockGroupedList({ facilities, now, onRowClick }) {
   );
 }
 
-const NODE_ICON = { gate: DoorOpen, mess: UtensilsCrossed, hostel: BedDouble, building: Building2 };
+// ---------- Indoor floor plan (building map) ----------
+// SVG coordinate space is 200 x 124. One long corridor runs through the middle (y 56-68).
+// Rooms above the corridor open downward (door y=56); rooms below open upward (door y=68).
+const MAP_W = 200, MAP_H = 124, CORR_Y1 = 56, CORR_Y2 = 68, CORR_MID = 62;
+const TOP_SLOTS = [40, 76, 112, 148];      // x centres of the four rooms above the corridor
+const BOT_SLOTS = [24, 62, 138, 176];      // rooms below the corridor (lobby sits in the middle)
+const STAIRS = { x: 12, label: "Stairs" };
+const LIFT = { x: 186, label: "Lift" };
+const LOBBY_X = 100;                       // main entrance centre
+const START_POINTS = [
+  { id: "entrance", label: "Main entrance", level0: true },
+  { id: "stairs", label: "Stairs" },
+  { id: "lift", label: "Lift" },
+  { id: "canteen", label: "Canteen", level0: true },
+];
+const START_X = { entrance: LOBBY_X, stairs: STAIRS.x, lift: LIFT.x, canteen: 176 };
+// Each teacher's cabin: level (0 = ground), side of corridor, slot index
+const TEACHER_ROOMS = {
+  t1: { level: 2, side: "top", slot: 1 }, t2: { level: 2, side: "top", slot: 2 }, t2b: { level: 2, side: "bot", slot: 0 },
+  t3: { level: 1, side: "top", slot: 0 }, t4: { level: 1, side: "top", slot: 3 }, t4b: { level: 1, side: "bot", slot: 3 },
+  t5: { level: 0, side: "top", slot: 1 }, t6: { level: 0, side: "top", slot: 2 },
+};
+const LEVEL_NAME = ["Ground floor", "1st floor", "2nd floor"];
+// Neighbouring rooms drawn for context on each floor
+const FILLER_TOP = ["Lab", "Lecture hall", "Cabin", "Cabin"];
+const FILLER_BOT = ["Washroom", "Cabin", "Cabin", "Cabin"];
 
-function CampusMap({ originName, destName }) {
-  const path = useMemo(() => findPath(originName, destName), [originName, destName]);
-  const points = path.map((n) => CAMPUS_NODES[n]);
-  const pointsAttr = points.map((p) => `${p.x},${p.y}`).join(" ");
+function IndoorMap({ teacher }) {
+  const room = TEACHER_ROOMS[teacher.id];
+  const [start, setStart] = useState("entrance");
+  if (!room) return null;
 
-  const totalMeters = useMemo(() => {
-    let d = 0;
-    for (let i = 0; i < points.length - 1; i++) d += Math.hypot(points[i + 1].x - points[i].x, points[i + 1].y - points[i].y);
-    return Math.max(20, Math.round(d * 5));
-  }, [points]);
-  const mins = Math.max(1, Math.round(totalMeters / 70));
+  const isTop = room.side === "top";
+  const slots = isTop ? TOP_SLOTS : BOT_SLOTS;
+  const doorX = slots[room.slot];
+  const doorY = isTop ? CORR_Y1 : CORR_Y2;
+  const startPt = START_POINTS.find((s) => s.id === start);
+  const sx = START_X[start];
+  const needsClimb = room.level > 0 && startPt.level0;
+  const arriveVia = start === "canteen" || start === "entrance" ? (room.slot > 1 ? "lift" : "stairs") : start;
+  const originX = needsClimb ? START_X[arriveVia] : sx;
+  // On the ground floor the entrance and canteen are real start points; on upper floors you arrive by stairs or lift.
+  const onThisLevel = !needsClimb;
+  const startY = start === "entrance" && room.level === 0 ? 116 : start === "canteen" && room.level === 0 ? 100 : CORR_MID;
+
+  const pts = [];
+  if (onThisLevel && room.level === 0 && (start === "entrance")) pts.push([originX, 116], [originX, CORR_MID]);
+  else if (onThisLevel && room.level === 0 && start === "canteen") pts.push([originX, 100], [originX, CORR_MID]);
+  else pts.push([originX, CORR_MID]);
+  pts.push([doorX, CORR_MID], [doorX, doorY]);
+  const clean = pts.filter((p, i) => i === 0 || p[0] !== pts[i - 1][0] || p[1] !== pts[i - 1][1]);
+  const d = clean.map((p, i) => `${i ? "L" : "M"}${p[0]},${p[1]}`).join(" ");
+
+  let units = 0;
+  for (let i = 1; i < clean.length; i++) units += Math.abs(clean[i][0] - clean[i - 1][0]) + Math.abs(clean[i][1] - clean[i - 1][1]);
+  const meters = Math.max(5, Math.round(units * 0.35)) + (needsClimb ? room.level * 8 : 0);
+  const mins = Math.max(1, Math.round(meters / 75));
+
+  const goingRight = doorX > originX;
+  const cabinSide = isTop ? (goingRight ? "left" : "right") : (goingRight ? "right" : "left");
+  const steps = [];
+  if (needsClimb) steps.push(`Take the ${arriveVia} up to the ${LEVEL_NAME[room.level].toLowerCase()}.`);
+  else if (start === "entrance" && room.level === 0) steps.push("Enter and walk straight ahead into the corridor.");
+  else if (start === "canteen" && room.level === 0) steps.push("Leave the canteen and join the main corridor.");
+  else steps.push(`Start at the ${startPt.label.toLowerCase()} on this floor.`);
+  if (Math.abs(doorX - originX) > 4) steps.push(`Walk ${goingRight ? "right" : "left"} along the corridor until you pass ${Math.max(0, Math.round(Math.abs(doorX - originX) / 36))} room${Math.round(Math.abs(doorX - originX) / 36) === 1 ? "" : "s"}.`);
+  steps.push(`${teacher.room} is on your ${cabinSide}. You've arrived.`);
+
+  const lineC = COLORS.line, faint = COLORS.inkFaint;
+  const mono = "'IBM Plex Mono', monospace";
+  const roomRect = (cx, top, label, fill, stroke, textColor, bold) => {
+    const y = top ? 8 : 74, h = 42;
+    return (
+      <g key={`${top}-${cx}-${label}`}>
+        <rect x={cx - 15} y={y} width={30} height={h} rx={3} fill={fill} stroke={stroke} strokeWidth={0.8} />
+        <text x={cx} y={y + h / 2 + 1.5} textAnchor="middle" fontSize={bold ? 4.4 : 3.6} fontWeight={bold ? 700 : 500} fill={textColor} fontFamily="Inter, system-ui, sans-serif">{label}</text>
+      </g>
+    );
+  };
 
   return (
     <div>
-      <div style={{ position: "relative", width: "100%", paddingBottom: "68%", background: "linear-gradient(180deg, #EAF3E6, #DCEBD6)", border: "1px solid #C7D9C1", borderRadius: 16, overflow: "hidden" }}>
-        <div style={{ position: "absolute", inset: 0 }}>
-          {/* decorative greenery texture */}
-          {[[8, 15], [92, 55], [6, 78], [95, 85], [60, 8], [25, 8]].map(([x, y], i) => (
-            <div key={i} style={{ position: "absolute", left: `${x}%`, top: `${y}%`, width: 10, height: 10, borderRadius: "50%", background: "#B9D4AF", opacity: 0.6 }} />
-          ))}
-
-          <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
-            <defs>
-              <marker id="ce-map-arrow" markerWidth="6" markerHeight="6" refX="4.5" refY="3" orient="auto">
-                <path d="M0,0 L6,3 L0,6 z" fill="#1F6F5C" />
-              </marker>
-            </defs>
-            {/* faint full path network, like unhighlighted roads on a real map */}
-            {CAMPUS_EDGES.map(([a, b], i) => {
-              const pa = CAMPUS_NODES[a], pb = CAMPUS_NODES[b];
-              return <line key={i} x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y} stroke="#B9C9B2" strokeWidth={1.6} strokeLinecap="round" vectorEffect="non-scaling-stroke" />;
-            })}
-            {/* active highlighted route */}
-            <polyline points={pointsAttr} fill="none" stroke="#1F6F5C" strokeWidth={1.1} strokeDasharray="2.4 1.8" strokeLinejoin="round" strokeLinecap="round" markerEnd="url(#ce-map-arrow)" className="ce-route" vectorEffect="non-scaling-stroke" />
-          </svg>
-
-          {Object.entries(CAMPUS_NODES).map(([name, p]) => {
-            const isOrigin = name === originName;
-            const isDest = name === destName;
-            const Icon = NODE_ICON[p.icon] || Building2;
-            const size = isDest ? 30 : isOrigin ? 26 : 22;
-            return (
-              <div key={name} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, transform: "translate(-50%,-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, zIndex: isDest || isOrigin ? 3 : 2 }}>
-                <div className={isOrigin ? "ce-dot" : ""} style={{
-                  width: size, height: size, borderRadius: "50%",
-                  background: isOrigin ? "#1F6F5C" : isDest ? "#B3402C" : "#FFFFFF",
-                  border: `2.5px solid ${isOrigin || isDest ? "#fff" : "#B9C9B2"}`,
-                  boxShadow: "0 1px 5px rgba(0,0,0,0.28)", display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  <Icon size={isDest ? 15 : 12} color={isOrigin || isDest ? "#fff" : "#5B6B60"} />
-                </div>
-                <span style={{ fontSize: 8.5, fontWeight: 700, color: "#33402F", background: "rgba(255,255,255,0.88)", padding: "1px 5px", borderRadius: 4, whiteSpace: "nowrap" }}>{name}</span>
-              </div>
-            );
-          })}
-
-          <div style={{ position: "absolute", top: 10, right: 12, fontSize: 11, fontWeight: 800, color: "#5B6B60", background: "rgba(255,255,255,0.75)", width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>N</div>
-        </div>
+      <p style={{ margin: "0 0 8px", fontSize: 12.5, fontWeight: 600, color: COLORS.inkMuted }}>Where are you now?</p>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+        {START_POINTS.map((s) => (
+          <button key={s.id} className="ce-btn" onClick={() => setStart(s.id)}
+            style={{ fontSize: 12.5, fontWeight: 600, padding: "7px 13px", borderRadius: 999, border: `1px solid ${start === s.id ? COLORS.teal : COLORS.line}`, background: start === s.id ? COLORS.tealBg : COLORS.surface, color: start === s.id ? COLORS.teal : COLORS.ink }}>
+            {s.label}
+          </button>
+        ))}
       </div>
-      <p style={{ margin: "8px 2px 0", fontSize: 12, color: COLORS.inkMuted }}>
-        ~{totalMeters}m from {originName} · about {mins} min walk
-      </p>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: COLORS.teal, background: COLORS.tealBg, padding: "4px 10px", borderRadius: 999 }}>{LEVEL_NAME[room.level]}</span>
+        <span style={{ fontSize: 12, color: COLORS.inkMuted }}>{teacher.floor} · floor plan</span>
+      </div>
+
+      <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.line}`, borderRadius: 14, padding: 8 }}>
+        <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} style={{ width: "100%", height: "auto", display: "block" }} role="img" aria-label={`Floor plan showing the way to ${teacher.room}`}>
+          <rect x={2} y={2} width={196} height={120} rx={6} fill={COLORS.surface} stroke={lineC} strokeWidth={1} />
+          <rect x={4} y={CORR_Y1} width={192} height={CORR_Y2 - CORR_Y1} fill={COLORS.panel} stroke={lineC} strokeWidth={0.5} strokeDasharray="2 2" />
+          <text x={100} y={CORR_MID + 1.4} textAnchor="middle" fontSize={3.2} fill={faint} fontFamily={mono} letterSpacing="0.6">CORRIDOR</text>
+
+          <rect x={4} y={8} width={16} height={42} rx={3} fill={COLORS.panel} stroke={lineC} strokeWidth={0.8} />
+          <text x={12} y={30} textAnchor="middle" fontSize={3.4} fill={faint} fontWeight={600} fontFamily="Inter, sans-serif">Stairs</text>
+          <rect x={178} y={8} width={16} height={42} rx={3} fill={COLORS.panel} stroke={lineC} strokeWidth={0.8} />
+          <text x={186} y={30} textAnchor="middle" fontSize={3.4} fill={faint} fontWeight={600} fontFamily="Inter, sans-serif">Lift</text>
+
+          {TOP_SLOTS.map((cx, i) => (i === room.slot && isTop)
+            ? roomRect(cx, true, teacher.room.replace("Hangar Office", "Office"), COLORS.coralBg, COLORS.coral, COLORS.coral, true)
+            : roomRect(cx, true, FILLER_TOP[i], COLORS.surface, lineC, faint, false))}
+          {BOT_SLOTS.map((cx, i) => (i === room.slot && !isTop)
+            ? roomRect(cx, false, teacher.room.replace("Hangar Office", "Office"), COLORS.coralBg, COLORS.coral, COLORS.coral, true)
+            : roomRect(cx, false, i === 0 && room.level === 0 ? "Washroom" : (i === 3 && room.level === 0 ? "Canteen" : FILLER_BOT[i]), COLORS.surface, lineC, faint, false))}
+          {room.level === 0 && <rect x={85} y={74} width={30} height={42} rx={3} fill={COLORS.tealBg} stroke={COLORS.teal} strokeWidth={0.8} />}
+          {room.level === 0 && <text x={100} y={92} textAnchor="middle" fontSize={3.6} fontWeight={700} fill={COLORS.teal} fontFamily="Inter, sans-serif">Main lobby</text>}
+          {room.level !== 0 && <rect x={85} y={74} width={30} height={42} rx={3} fill={COLORS.surface} stroke={lineC} strokeWidth={0.8} />}
+          {room.level !== 0 && <text x={100} y={95} textAnchor="middle" fontSize={3.4} fill={faint} fontFamily="Inter, sans-serif">Open to below</text>}
+
+          <path d={d} fill="none" stroke={COLORS.teal} strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round" strokeDasharray="4 3" className="ce-route" />
+
+          <g>
+            <circle cx={originX} cy={clean[0][1]} r={6} fill={COLORS.teal} opacity={0.2} />
+            <circle cx={originX} cy={clean[0][1]} r={3.2} fill={COLORS.teal} stroke={COLORS.surface} strokeWidth={1} />
+            <text x={originX} y={clean[0][1] + (clean[0][1] > 100 ? -7 : 9)} textAnchor="middle" fontSize={3.6} fontWeight={700} fill={COLORS.teal} fontFamily="Inter, sans-serif">{needsClimb ? `Arrive by ${arriveVia}` : "You are here"}</text>
+          </g>
+          <g>
+            <path d={`M${doorX},${doorY} m0,0`} />
+            <circle cx={doorX} cy={doorY} r={4.2} fill={COLORS.coral} stroke={COLORS.surface} strokeWidth={1.2} />
+            <circle cx={doorX} cy={doorY} r={1.4} fill="#fff" />
+          </g>
+        </svg>
+      </div>
+
+      <div style={{ display: "flex", gap: 14, margin: "10px 2px 4px", fontSize: 12.5, color: COLORS.ink, fontWeight: 600 }}>
+        <span>~{meters} m</span><span style={{ color: COLORS.inkMuted, fontWeight: 400 }}>·</span><span>about {mins} min walk</span>
+      </div>
+      <ol style={{ margin: "6px 0 0", padding: "0 0 0 18px", display: "flex", flexDirection: "column", gap: 4 }}>
+        {steps.map((s, i) => <li key={i} style={{ fontSize: 12.5, color: COLORS.inkMuted, lineHeight: 1.5 }}>{s}</li>)}
+      </ol>
     </div>
   );
 }
@@ -333,7 +375,6 @@ export default function CampusEase() {
 
   const [teacherQuery, setTeacherQuery] = useState("");
   const [openTeacherMap, setOpenTeacherMap] = useState(null);
-  const [originNode, setOriginNode] = useState(null);
 
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState(null);
@@ -354,23 +395,21 @@ export default function CampusEase() {
     (async () => {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) { if (!cancelled) setData(JSON.parse(raw)); }
-        else {
-          const initial = { facilities: defaultFacilities(), reports: seedReports(), reservations: [] };
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
-          if (!cancelled) setData(initial);
-        }
+        if (!raw) throw new Error("empty");
+        if (!cancelled) setData(JSON.parse(raw));
       } catch (e) {
-        if (!cancelled) setData({ facilities: defaultFacilities(), reports: seedReports(), reservations: [] });
+        const initial = { facilities: defaultFacilities(), reports: seedReports(), reservations: [] };
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(initial)); } catch (e2) {}
+        if (!cancelled) setData(initial);
       }
     })();
     return () => { cancelled = true; };
   }, []);
 
-  const persist = (next) => {
+  const persist = async (next) => {
     setData(next);
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); }
-    catch (e) { setToast({ kind: "error", text: "Couldn't save locally." }); }
+    catch (e) { setToast({ kind: "error", text: "Couldn't save — check your connection." }); }
   };
 
   const showToast = (kind, text) => {
@@ -555,6 +594,15 @@ export default function CampusEase() {
     { id: "scan", label: "Scan QR", icon: Camera, desc: "Scan a water cooler sticker" },
   ];
 
+  const tileBadge = (id) => {
+    const typeMap = { charging: "charging", vending: "vending", washroom: "washroom", wifi: "wifi", water: "watercooler" };
+    const type = typeMap[id];
+    if (!type) return null;
+    const list = facilities.filter((f) => f.type === type);
+    const bad = list.filter((f) => f.status !== "ok").length;
+    if (list.length === 0) return null;
+    return bad === 0 ? { text: "All good", color: COLORS.teal, bg: COLORS.tealBg } : { text: `${bad} issue${bad > 1 ? "s" : ""}`, color: COLORS.amber, bg: COLORS.amberBg };
+  };
   const goHome = () => { setScreen("home"); setScanResult(null); setScanError(""); stopScanning(); };
   const goReport = (facilityId) => { if (facilityId) setReportFacility(facilityId); setScreen("report"); };
 
@@ -572,7 +620,9 @@ export default function CampusEase() {
         @keyframes ceDot { 0%,100% { box-shadow: 0 0 0 0 rgba(255,124,107,0.35);} 50% { box-shadow: 0 0 0 6px rgba(255,124,107,0);} }
         .ce-route { animation: ceRoute 0.8s linear infinite; }
         @keyframes ceRoute { to { stroke-dashoffset: -10; } }
-        .ce-tile:hover { border-color: ${COLORS.teal}; }
+        .ce-tile { transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
+        .ce-tile:hover { border-color: ${COLORS.teal}; transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.12); }
+        @media (prefers-reduced-motion: reduce) { .ce-fade, .ce-dot, .ce-route, .ce-tile { animation: none !important; transition: none !important; } }
         .ce-sidebar { width: 220px; flex-shrink: 0; background: ${COLORS.surface}; border-right: 1px solid ${COLORS.line}; display: flex; flex-direction: column; padding: 24px 16px; position: sticky; top: 0; height: 100vh; }
         .ce-brand { display: flex; align-items: center; gap: 9px; padding: 0 8px; margin-bottom: 26px; }
         .ce-nav-item { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 10px; border: none; background: none; font-size: 13.5px; font-weight: 500; color: ${COLORS.inkMuted}; text-align: left; width: 100%; }
@@ -631,14 +681,28 @@ export default function CampusEase() {
 
           {data && screen === "home" && (
             <div className="ce-fade">
-              <h1 style={{ margin: "0 0 4px", fontFamily: "'Space Grotesk', 'Inter', system-ui, sans-serif", fontSize: 26, fontWeight: 700 }}>Hi there 👋</h1>
-              <p style={{ margin: "0 0 22px", fontSize: 13.5, color: COLORS.inkMuted }}>What do you need right now?</p>
+              <h1 style={{ margin: "0 0 4px", fontFamily: "'Space Grotesk', 'Inter', system-ui, sans-serif", fontSize: 28, fontWeight: 700, letterSpacing: "-0.01em" }}>{new Date(now).getHours() < 12 ? "Good morning" : new Date(now).getHours() < 17 ? "Good afternoon" : "Good evening"} 👋</h1>
+              <p style={{ margin: "0 0 20px", fontSize: 14, color: COLORS.inkMuted }}>What do you need right now?</p>
+
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 20 }}>
+                {[
+                  { label: "Working", value: facilities.filter((f) => f.status === "ok").length, color: COLORS.teal, bg: COLORS.tealBg },
+                  { label: "Need attention", value: facilities.filter((f) => f.status === "watch").length, color: COLORS.amber, bg: COLORS.amberBg },
+                  { label: "Out of order", value: facilities.filter((f) => f.status === "flagged").length, color: COLORS.coral, bg: COLORS.coralBg },
+                ].map((c) => (
+                  <div key={c.label} style={{ flex: "1 1 120px", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: c.bg }}>
+                    <span style={{ fontFamily: "'Space Grotesk', 'Inter', sans-serif", fontSize: 22, fontWeight: 700, color: c.color }}>{c.value}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: c.color }}>{c.label}</span>
+                  </div>
+                ))}
+              </div>
 
               {nearestFreeCharging && (
-                <div style={{ display: "flex", alignItems: "center", gap: 12, background: COLORS.tealBg, border: `1px solid ${COLORS.teal}33`, borderRadius: 12, padding: "12px 16px", marginBottom: 20 }}>
-                  <Zap size={16} color={COLORS.teal} />
-                  <p style={{ margin: 0, fontSize: 12.5, flex: 1 }}>Nearest free charging bay: <strong>{nearestFreeCharging.name}</strong> · {nearestFreeCharging.floor}</p>
-                </div>
+                <button className="ce-btn" onClick={() => setScreen("charging")} style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 12, background: COLORS.panel, border: `1px solid ${COLORS.line}`, borderRadius: 14, padding: "12px 16px", marginBottom: 20 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 10, background: COLORS.tealBg, display: "flex", alignItems: "center", justifyContent: "center" }}><Zap size={16} color={COLORS.teal} /></div>
+                  <p style={{ margin: 0, fontSize: 13, flex: 1, color: COLORS.ink }}>Nearest free charging bay: <strong>{nearestFreeCharging.name}</strong>, {nearestFreeCharging.floor}</p>
+                  <ChevronRight size={16} color={COLORS.inkFaint} />
+                </button>
               )}
 
               <div className="ce-tile-grid">
@@ -646,8 +710,11 @@ export default function CampusEase() {
                   const Icon = t.icon;
                   return (
                     <button key={t.id} className="ce-btn ce-tile" onClick={() => setScreen(t.id)} style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: 10, padding: 18, background: COLORS.panel, border: `1px solid ${COLORS.line}`, borderRadius: 16 }}>
-                      <div style={{ width: 40, height: 40, borderRadius: 11, background: COLORS.tealBg, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Icon size={19} color={COLORS.teal} />
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div style={{ width: 42, height: 42, borderRadius: 12, background: COLORS.tealBg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <Icon size={20} color={COLORS.teal} />
+                        </div>
+                        {tileBadge(t.id) && <span style={{ fontSize: 11, fontWeight: 700, color: tileBadge(t.id).color, background: tileBadge(t.id).bg, padding: "4px 9px", borderRadius: 999 }}>{tileBadge(t.id).text}</span>}
                       </div>
                       <div>
                         <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600 }}>{t.label}</p>
@@ -662,6 +729,12 @@ export default function CampusEase() {
 
           {data && (screen === "charging" || screen === "vending" || screen === "washroom" || screen === "wifi") && (
             <Screen title={TYPE_META[screen].noun + "s"} subtitle={`Live status across all three blocks.`} onBack={goHome} onReport={() => goReport("")} now={now}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+                {["ok", "watch", "flagged"].map((st) => {
+                  const n = facilities.filter((f) => f.type === screen && f.status === st).length;
+                  return <span key={st} style={{ fontSize: 12, fontWeight: 700, color: statusColor(st), background: statusBg(st), padding: "6px 12px", borderRadius: 999 }}>{n} {TYPE_META[screen].labels[st].toLowerCase()}</span>;
+                })}
+              </div>
               <BlockGroupedList facilities={facilities.filter((f) => f.type === screen)} now={now} onRowClick={(f) => goReport(f.id)} />
             </Screen>
           )}
@@ -707,27 +780,10 @@ export default function CampusEase() {
                               </div>
                               {open && (
                                 <div style={{ padding: "0 16px 16px" }}>
-                                  {!originNode ? (
-                                    <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: 14 }}>
-                                      <p style={{ margin: "0 0 10px", fontSize: 12.5, fontWeight: 600, color: COLORS.ink }}>Where are you starting from?</p>
-                                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                                        {START_POINTS.map((sp) => (
-                                          <button key={sp} className="ce-btn" onClick={() => setOriginNode(sp)} style={{ fontSize: 12, fontWeight: 500, padding: "7px 12px", borderRadius: 999, border: `1px solid ${COLORS.line}`, background: COLORS.panel, color: COLORS.ink }}>
-                                            {sp}
-                                          </button>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <>
-                                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                                        <p style={{ margin: 0, fontSize: 11.5, color: COLORS.inkMuted }}>From <strong style={{ color: COLORS.ink }}>{originNode}</strong></p>
-                                        <button className="ce-btn" onClick={() => setOriginNode(null)} style={{ fontSize: 11, color: COLORS.teal, background: "none", border: "none", fontWeight: 600, padding: 0 }}>Change</button>
-                                      </div>
-                                      <CampusMap originName={originNode} destName={t.floor} />
-                                      <p style={{ margin: "8px 2px 0", fontSize: 12.5, color: COLORS.ink }}>Then head to <strong>{t.room}</strong>.</p>
-                                    </>
-                                  )}
+                                  <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: COLORS.inkMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                    {t.floor} — {t.room}
+                                  </p>
+                                  <IndoorMap teacher={t} />
                                 </div>
                               )}
                             </div>
