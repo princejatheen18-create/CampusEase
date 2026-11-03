@@ -1197,6 +1197,9 @@ function CanteenPage({ c }) {
   return (
     <Screen title="Canteen and food" subtitle="Outlets, hours and menus." onBack={() => c.go("home")}>
       <InfoBanner>Menus, prices and hours are placeholders until the canteen provides official details.</InfoBanner>
+      <button className="ce-btn ce-card-hover" onClick={() => c.go("foodorder")} style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 12, background: COLORS.tealBg, border: `1px solid ${COLORS.line}`, borderRadius: 14, padding: "12px 16px", marginBottom: 18 }}>
+        <Utensils size={17} color={COLORS.teal} /><p style={{ margin: 0, fontSize: 13.5, flex: 1 }}>Hungry? <strong>Order food online with FoodZa</strong></p><ChevronRight size={16} color={COLORS.teal} />
+      </button>
       <div style={{ marginBottom: 18 }}><SearchBox value={q} onChange={setQ} placeholder="Search a dish or outlet" /></div>
       {outlets.length === 0 ? <EmptyState icon={Utensils} title="No dishes found" body={`Nothing matches "${q}".`} action={<Button variant="secondary" onClick={() => setQ("")}>Clear search</Button>} /> : (
         <div className="ce-grid-auto ce-stagger">
@@ -1313,6 +1316,15 @@ function AmenitiesPage({ c }) {
               <Pill status={bad ? "watch" : "ok"}>{bad ? `${ok} working · ${bad} need attention` : "All working"}</Pill>
             </button>);
         })}
+      </div>
+      <SectionTitle>More facilities</SectionTitle>
+      <div className="ce-grid-auto ce-stagger" style={{ marginBottom: 22 }}>
+        {[["watercheck", "Water cooler status", "Is there water? Request a refill", Droplets], ["foodorder", "Food ordering", "Order from FoodZa", Utensils]].map(([id, label, sub, Ic]) => (
+          <button key={id} className="ce-btn ce-card-hover" onClick={() => c.go(id)} style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, background: COLORS.surface, border: `1px solid ${COLORS.line}`, borderRadius: 14, boxShadow: COLORS.shadow, textAlign: "left" }}>
+            <span style={{ width: 38, height: 38, borderRadius: 10, background: COLORS.tealBg, display: "flex", alignItems: "center", justifyContent: "center" }}><Ic size={18} color={COLORS.teal} /></span>
+            <span style={{ flex: 1 }}><span style={{ display: "block", fontSize: 14, fontWeight: 600 }}>{label}</span><span style={{ display: "block", fontSize: 12, color: COLORS.inkMuted }}>{sub}</span></span>
+            <ChevronRight size={16} color={COLORS.inkFaint} />
+          </button>))}
       </div>
       <SectionTitle>Tools</SectionTitle>
       <div className="ce-grid-auto">
@@ -1918,6 +1930,90 @@ function SettingsPrivacy({ c }) {
   );
 }
 
+// ---------------------------------------------------------------- Water cooler status (availability)
+const WATER_STATES = {
+  ok: { label: "Water available", pill: "ok" },
+  refill: { label: "Refilling required", pill: "watch" },
+  empty: { label: "Out of water", pill: "flagged" },
+};
+function WaterStatusPage({ c }) {
+  const [blk, setBlk] = useState("All");
+  const coolers = c.facilities.filter((f) => f.type === "watercooler");
+  const shown = coolers.filter((f) => blk === "All" || f.floor === blk);
+  const stateOf = (f) => f.water || "ok";
+  const setWater = (f, state, by, msg) => {
+    c.update({ facilities: c.facilities.map((x) => (x.id === f.id ? { ...x, water: state, waterUpdatedAt: Date.now(), waterBy: by } : x)) });
+    c.toast("ok", msg);
+  };
+  const count = (k) => coolers.filter((f) => stateOf(f) === k).length;
+  return (
+    <Screen title="Water cooler status" subtitle="See which coolers have water, and ask for a refill." parent={amenitiesCrumb(c)} onBack={() => c.go("home")}>
+      <InfoBanner tone="info">Status is reported by students and confirmed by staff. CampusEase has no water-level sensors, so a cooler may have changed since its last update.</InfoBanner>
+      <div className="ce-grid-kpi" style={{ marginBottom: 16 }}>
+        <Kpi label="Water available" value={count("ok")} icon={Droplets} tone="ok" />
+        <Kpi label="Refilling required" value={count("refill")} icon={Clock} tone="watch" />
+        <Kpi label="Out of water" value={count("empty")} icon={AlertCircle} tone="flagged" />
+      </div>
+      <div style={{ display: "flex", gap: 6, overflowX: "auto", marginBottom: 16, paddingBottom: 4 }}>{["All", ...FLOORS].map((x) => <Chip key={x} active={blk === x} onClick={() => setBlk(x)}>{x}</Chip>)}</div>
+      {c.staffOk && <InfoBanner tone="info">Staff mode is on. Use the staff buttons on each cooler to update its status or confirm a refill.</InfoBanner>}
+      {shown.length === 0 ? <EmptyState icon={Droplets} title="No coolers here" body="No water coolers are listed for this block." /> : (
+        <div className="ce-grid-auto ce-stagger">
+          {shown.map((f) => { const st = stateOf(f); const m = WATER_STATES[st]; const t = f.waterUpdatedAt || f.updatedAt; return (
+            <Card key={f.id} pad={18} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
+                <div style={{ minWidth: 0 }}>
+                  <h3 style={{ margin: 0, fontSize: 15, fontWeight: 650 }}>Cooler, {f.name}</h3>
+                  <p style={{ margin: "3px 0 0", fontSize: 12.5, color: COLORS.inkMuted }}>{f.floor} · ID {f.id}</p>
+                </div>
+                <Pill status={m.pill}>{m.label}</Pill>
+              </div>
+              <p style={{ margin: 0, fontSize: 12, color: COLORS.inkMuted }}>Updated {formatRelative(t, c.now)}{f.waterBy ? (f.waterBy === "staff" ? " by staff" : " (student report)") : ""}</p>
+              {st !== "ok" && f.waterBy === "student" && <p style={{ margin: 0, fontSize: 12, color: COLORS.amber }}>Waiting for staff to confirm.</p>}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <Button size="sm" variant="secondary" icon={AlertCircle} disabled={st === "empty"} onClick={() => setWater(f, "empty", "student", "Reported as empty. Thanks.")}>Report empty</Button>
+                <Button size="sm" variant="secondary" icon={Clock} disabled={st !== "ok"} onClick={() => setWater(f, "refill", "student", "Refill request sent.")}>Needs refilling</Button>
+                <Button size="sm" variant="ghost" icon={Flag} onClick={() => c.goReport(f.id)}>Report damage</Button>
+              </div>
+              {c.staffOk && (
+                <div style={{ borderTop: `1px solid ${COLORS.line}`, paddingTop: 12 }}>
+                  <p style={{ margin: "0 0 8px", fontSize: 11.5, fontWeight: 600, color: COLORS.inkMuted }}>Staff</p>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <Button size="sm" icon={CheckCircle2} disabled={st === "ok"} onClick={() => setWater(f, "ok", "staff", "Refill confirmed.")}>Confirm refilled</Button>
+                    <Button size="sm" variant="secondary" disabled={st === "refill" && f.waterBy === "staff"} onClick={() => setWater(f, "refill", "staff", "Marked as refilling required.")}>Refilling required</Button>
+                    <Button size="sm" variant="secondary" disabled={st === "empty" && f.waterBy === "staff"} onClick={() => setWater(f, "empty", "staff", "Marked as out of water.")}>Out of water</Button>
+                  </div>
+                </div>)}
+            </Card>); })}
+        </div>)}
+      {!c.staffOk && <p style={{ margin: "16px 0 0", fontSize: 12.5, color: COLORS.inkMuted }}>Campus staff can sign in under Staff Information to confirm refills.</p>}
+    </Screen>
+  );
+}
+
+// ---------------------------------------------------------------- Food ordering (FoodZa)
+const FOODZA_URL = "https://www.foodza.store/";
+function FoodOrderPage({ c }) {
+  return (
+    <Screen title="Food ordering" subtitle="Order food through FoodZa, our campus food platform." parent={amenitiesCrumb(c)} onBack={() => c.go("home")}>
+      <div style={{ borderRadius: 20, padding: "clamp(24px, 5vw, 44px)", color: "#fff", background: "linear-gradient(135deg, #F97316 0%, #EF4444 100%)", boxShadow: "0 18px 40px rgba(239,68,68,.25)", position: "relative", overflow: "hidden" }}>
+        <span aria-hidden="true" style={{ position: "absolute", right: -40, top: -40, width: 220, height: 220, borderRadius: "50%", background: "rgba(255,255,255,.12)" }} />
+        <span aria-hidden="true" style={{ position: "absolute", right: 60, bottom: -70, width: 160, height: 160, borderRadius: "50%", background: "rgba(255,255,255,.1)" }} />
+        <div style={{ position: "relative", maxWidth: 560 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,.2)", borderRadius: 999, padding: "6px 14px 6px 8px", fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em" }}>
+            <span style={{ width: 26, height: 26, borderRadius: 8, background: "#fff", color: "#EF4444", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Utensils size={15} /></span>FoodZa
+          </span>
+          <h2 style={{ margin: "18px 0 10px", fontSize: "clamp(24px, 5vw, 34px)", fontWeight: 800, lineHeight: 1.15, letterSpacing: "-0.02em" }}>Hungry? Order Your Favourite Food!</h2>
+          <p style={{ margin: "0 0 24px", fontSize: 15, lineHeight: 1.6, opacity: 0.95 }}>Skip the queue between classes. Order your favourite meals from FoodZa, the food delivery platform for our campus community.</p>
+          <a href={FOODZA_URL} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 48, padding: "0 28px", borderRadius: 12, background: "#fff", color: "#C2410C", fontSize: 16, fontWeight: 700, textDecoration: "none", boxShadow: "0 6px 16px rgba(0,0,0,.18)" }}>
+            Order Now <ChevronRight size={18} />
+          </a>
+        </div>
+      </div>
+      <p style={{ margin: "14px 2px 0", fontSize: 12.5, color: COLORS.inkMuted }}>Opens foodza.store in a new tab. Menus, orders and payments are handled by FoodZa, not CampusEase.</p>
+    </Screen>
+  );
+}
+
 // =====================================================================
 // NAVIGATION + APP SHELL
 // =====================================================================
@@ -1947,7 +2043,7 @@ const NAV_GROUPS = [
     { id: "settings-notifications", label: "Notification Preferences", icon: BellRing }, { id: "settings-privacy", label: "Privacy Settings", icon: Lock } ] },
 ];
 const ALL_NAV = NAV_GROUPS.flatMap((g) => g.items.map((i) => ({ ...i, group: g.id })));
-const AMENITY_SCREENS = ["charging", "vending", "washroom", "wifi", "water", "reserve", "scan", "report"];
+const AMENITY_SCREENS = ["charging", "vending", "washroom", "wifi", "water", "reserve", "scan", "report", "watercheck", "foodorder"];
 const activeNavId = (s) => (AMENITY_SCREENS.includes(s) ? "amenities" : s);
 const groupOf = (s) => (ALL_NAV.find((i) => i.id === activeNavId(s)) || { group: "home" }).group;
 
@@ -2286,6 +2382,8 @@ export default function CampusEase() {
       case "washroom": return <FacilityPage c={c} type="washroom" title="Washrooms" subtitle="Cleanliness status by block." />;
       case "wifi": return <FacilityPage c={c} type="wifi" title="WiFi" subtitle="Signal strength by zone." />;
       case "water": return <FacilityPage c={c} type="watercooler" title="Water coolers" subtitle="Cleaning status by block." extra={<Button variant="secondary" icon={Camera} onClick={() => go("scan")}>Scan QR</Button>} />;
+      case "watercheck": return <WaterStatusPage c={c} />;
+      case "foodorder": return <FoodOrderPage c={c} />;
       case "reserve": return <ReservePage c={c} />;
       case "scan": return <ScanPage c={c} />;
       case "report": return <ReportPage c={c} />;
