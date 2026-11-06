@@ -131,6 +131,9 @@ function generateSlots(now) {
 const statusColor = (status) => (status === "ok" ? COLORS.ok : status === "watch" ? COLORS.amber : COLORS.coral);
 const statusBg = (status) => (status === "ok" ? COLORS.okBg : status === "watch" ? COLORS.amberBg : COLORS.coralBg);
 
+const violetOf = () => (COLORS.teal === "#818CF8" ? "#A78BFA" : "#7C3AED");
+const TILE_TONE = { charging: "#F59E0B", vending: "#F97316", washroom: "#0EA5E9", wifi: "#6366F1", watercooler: "#06B6D4" };
+
 const initialsOf = (name) => (name || "").trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "S";
 
 // ---------- Design system ----------
@@ -138,11 +141,11 @@ function Button({ variant = "primary", size = "md", icon: Icon, children, style,
   const sm = size === "sm";
   const base = {
     display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, fontWeight: 600,
-    borderRadius: 10, border: "1px solid transparent", fontSize: sm ? 12.5 : 13.5,
+    borderRadius: 12, border: "1px solid transparent", fontSize: sm ? 12.5 : 13.5,
     padding: sm ? "6px 12px" : "9px 16px", minHeight: sm ? 34 : 40, whiteSpace: "nowrap",
   };
   const variants = {
-    primary: { background: COLORS.teal, color: COLORS.onAccent },
+    primary: { background: `linear-gradient(135deg, ${COLORS.teal}, ${violetOf()})`, color: COLORS.onAccent, boxShadow: "0 1px 2px rgba(79,70,229,.25)" },
     secondary: { background: COLORS.surface, color: COLORS.ink, borderColor: COLORS.line },
     danger: { background: COLORS.coral, color: COLORS.onAccent },
     soft: { background: COLORS.tealBg, color: COLORS.teal },
@@ -155,9 +158,9 @@ function Button({ variant = "primary", size = "md", icon: Icon, children, style,
   );
 }
 
-function Card({ children, style, pad = 20, ...rest }) {
+function Card({ children, style, pad = 20, className, ...rest }) {
   return (
-    <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.line}`, borderRadius: 14, padding: pad, boxShadow: COLORS.shadow, ...style }} {...rest}>
+    <div className={`ce-card ${className || ""}`} style={{ background: COLORS.surface, border: `1px solid ${COLORS.line}`, borderRadius: 18, padding: pad, boxShadow: COLORS.shadow, ...style }} {...rest}>
       {children}
     </div>
   );
@@ -279,9 +282,9 @@ function Screen({ title, subtitle, onBack, onReport, actions, parent, children }
         {parent && (<><button className="ce-btn" onClick={parent.onClick} style={{ background: "none", border: "none", padding: 0, color: COLORS.inkMuted, fontSize: 12.5, fontWeight: 500 }}>{parent.label}</button><ChevronRight size={12} /></>)}
         <span style={{ color: COLORS.ink, fontWeight: 600 }}>{title}</span>
       </nav>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
+      <div className="ce-pagehead" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
         <div style={{ minWidth: 0 }}>
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", color: COLORS.ink }}>{title}</h1>
+          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 700, letterSpacing: "-0.025em", color: COLORS.ink }}>{title}</h1>
           {subtitle && <p style={{ margin: "5px 0 0", fontSize: 14, color: COLORS.inkMuted }}>{subtitle}</p>}
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -827,16 +830,23 @@ function DashboardPage({ c }) {
   ];
   return (
     <div className="ce-fade">
-      <div style={{ marginBottom: 22 }}>
-        <h1 style={{ margin: 0, fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em" }}>{greeting}{first ? `, ${first}` : ""}</h1>
-        <p style={{ margin: "5px 0 0", fontSize: 14, color: COLORS.inkMuted }}>{new Date(now).toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" })} · {CAMPUS.name}</p>
-      </div>
-
-      <div className="ce-stagger" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>
-        {shortcuts.map((s) => { const Ic = s.icon; return (
-          <button key={s.label} className="ce-btn ce-card-hover" onClick={() => go(s.screen)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: COLORS.surface, border: `1px solid ${COLORS.line}`, borderRadius: 12, boxShadow: COLORS.shadow, fontSize: 13, fontWeight: 600 }}>
-            <span style={{ width: 32, height: 32, borderRadius: 9, background: COLORS.tealBg, display: "flex", alignItems: "center", justifyContent: "center" }}><Ic size={16} color={COLORS.teal} /></span>{s.label}
-          </button>); })}
+      <div className="ce-hero" style={{ marginBottom: 20 }}>
+        <div className="ce-hero-top">
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontSize: 13.5, fontWeight: 600, opacity: 0.85 }}>{new Date(now).toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" })} · {CAMPUS.name}</p>
+            <h1>{greeting}{first ? `, ${first}` : ""}</h1>
+            <p style={{ fontSize: 15, opacity: 0.92 }}>Here is what is happening on campus today.</p>
+          </div>
+          <div className="ce-hero-stats">
+            <div className="ce-hero-stat"><b>{facilities.filter((f) => f.status === "ok").length}/{facilities.length}</b><span>amenities working</span></div>
+            <div className="ce-hero-stat"><b>{upcoming.length}</b><span>upcoming events</span></div>
+            <div className="ce-hero-stat"><b>{notices.length}</b><span>notices</span></div>
+          </div>
+        </div>
+        <div className="ce-hero-shortcuts">
+          {shortcuts.map((s) => { const Ic = s.icon; return (
+            <button key={s.label} className="ce-btn ce-hero-btn" onClick={() => go(s.screen)}><span className="ce-hero-ic"><Ic size={16} /></span>{s.label}</button>); })}
+        </div>
       </div>
 
       <div className="ce-grid-eq" style={{ marginBottom: 16 }}>
@@ -876,7 +886,7 @@ function DashboardPage({ c }) {
           return (
             <button key={t.id} className="ce-btn ce-card-hover" onClick={() => go(t.id)} style={{ textAlign: "left", padding: 14, background: COLORS.surface, border: `1px solid ${COLORS.line}`, borderRadius: 14, boxShadow: COLORS.shadow, display: "flex", flexDirection: "column", gap: 10 }}>
               <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ width: 36, height: 36, borderRadius: 10, background: COLORS.tealBg, display: "flex", alignItems: "center", justifyContent: "center" }}><Ic size={18} color={COLORS.teal} /></span>
+                <span style={{ width: 38, height: 38, borderRadius: 12, background: `${TILE_TONE[t.type]}24`, display: "flex", alignItems: "center", justifyContent: "center" }}><Ic size={19} color={TILE_TONE[t.type]} /></span>
                 <Pill status={bad ? "watch" : "ok"}>{bad ? `${bad} issue${bad > 1 ? "s" : ""}` : "All good"}</Pill>
               </span>
               <span style={{ fontSize: 14, fontWeight: 600 }}>{t.label}</span>
@@ -1309,7 +1319,7 @@ function AmenitiesPage({ c }) {
           return (
             <button key={t.id} className="ce-btn ce-card-hover" onClick={() => c.go(t.id)} style={{ textAlign: "left", padding: 18, background: COLORS.surface, border: `1px solid ${COLORS.line}`, borderRadius: 14, boxShadow: COLORS.shadow, display: "flex", flexDirection: "column", gap: 14 }}>
               <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ width: 42, height: 42, borderRadius: 12, background: COLORS.tealBg, display: "flex", alignItems: "center", justifyContent: "center" }}><Ic size={20} color={COLORS.teal} /></span>
+                <span style={{ width: 44, height: 44, borderRadius: 14, background: `${TILE_TONE[t.type]}24`, display: "flex", alignItems: "center", justifyContent: "center" }}><Ic size={21} color={TILE_TONE[t.type]} /></span>
                 <ChevronRight size={17} color={COLORS.inkFaint} />
               </span>
               <span><span style={{ display: "block", fontSize: 15, fontWeight: 650 }}>{t.label}</span><span style={{ display: "block", fontSize: 12.5, color: COLORS.inkMuted, marginTop: 2 }}>{list.length} spots across 3 blocks</span></span>
@@ -2456,11 +2466,28 @@ export default function CampusEase() {
         .ce-group-body.closed { display: none; }
         .ce-nav-item { position: relative; display: flex; align-items: center; gap: 12px; padding: 8px 12px; min-height: 38px; border-radius: 10px; border: none; background: none; font-size: 13.5px; font-weight: 500; color: ${COLORS.inkMuted}; text-align: left; width: 100%; white-space: nowrap; }
         .ce-nav-item:hover { background: ${COLORS.panel2}; color: ${COLORS.ink}; }
-        .ce-nav-item.active { background: ${COLORS.tealBg}; color: ${COLORS.teal}; font-weight: 600; }
+        .ce-nav-item.active { background: linear-gradient(90deg, ${COLORS.tealBg}, transparent); color: ${COLORS.teal}; font-weight: 600; }
+        .ce-nav-item:hover:not(.active) { transform: translateX(2px); }
         .ce-nav-item.active::before { content: ""; position: absolute; left: -12px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: ${COLORS.teal}; }
         .ce-nav-item .lbl { overflow: hidden; text-overflow: ellipsis; transition: opacity .15s; }
-        .ce-content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-        .ce-topbar { position: sticky; top: 0; z-index: 40; height: 64px; display: flex; align-items: center; gap: 10px; padding: 0 28px; background: ${COLORS.surface}; border-bottom: 1px solid ${COLORS.line}; }
+        .ce-content { flex: 1; min-width: 0; display: flex; flex-direction: column; background: radial-gradient(900px 360px at 85% -60px, ${COLORS.tealBg}, transparent 70%); transition: background .3s ease; }
+        .ce-card { transition: background-color .25s ease, border-color .25s ease, box-shadow .2s ease, transform .15s ease; }
+        .ce-pagehead { position: relative; overflow: hidden; background: linear-gradient(120deg, ${COLORS.tealBg} 0%, transparent 80%); border: 1px solid ${COLORS.line}; border-radius: 22px; padding: 24px 28px; }
+        .ce-pagehead::before { content: ""; position: absolute; right: -50px; top: -70px; width: 220px; height: 220px; border-radius: 50%; background: ${COLORS.teal}; opacity: .08; pointer-events: none; }
+        .ce-pagehead > * { position: relative; }
+        .ce-hero { position: relative; overflow: hidden; border-radius: 26px; padding: 30px; color: #fff; background: radial-gradient(circle at 92% 0%, rgba(255,255,255,.22), transparent 42%), radial-gradient(circle at 0% 110%, rgba(14,165,233,.40), transparent 45%), ${theme === "dark" ? "linear-gradient(135deg, #1E1B4B 0%, #312E81 55%, #4C1D95 100%)" : "linear-gradient(135deg, #4338CA 0%, #5B3FD6 55%, #7C3AED 100%)"}; box-shadow: ${theme === "dark" ? "0 10px 30px rgba(0,0,0,.35)" : "0 18px 40px rgba(79,70,229,.28)"}; }
+        .ce-hero h1 { margin: 6px 0 4px; font-size: 34px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; }
+        .ce-hero p { margin: 0; }
+        .ce-hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; margin-bottom: 22px; }
+        .ce-hero-stats { display: flex; gap: 10px; flex-wrap: wrap; }
+        .ce-hero-stat { background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.24); border-radius: 16px; padding: 10px 16px; min-width: 112px; }
+        .ce-hero-stat b { display: block; font-size: 24px; line-height: 1.1; font-weight: 700; }
+        .ce-hero-stat span { font-size: 12.5px; opacity: .9; }
+        .ce-hero-shortcuts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+        .ce-hero .ce-hero-btn { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,.26); background: rgba(255,255,255,.13); color: #fff; font-size: 13.5px; font-weight: 600; text-align: left; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+        .ce-hero .ce-hero-btn:hover { background: rgba(255,255,255,.25); transform: translateY(-1px); }
+        .ce-hero-ic { width: 32px; height: 32px; border-radius: 10px; background: rgba(255,255,255,.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .ce-topbar { position: sticky; top: 0; z-index: 40; height: 68px; display: flex; align-items: center; gap: 10px; padding: 0 28px; background: ${theme === "dark" ? "rgba(16,24,40,.78)" : "rgba(255,255,255,.78)"}; -webkit-backdrop-filter: blur(14px) saturate(1.4); backdrop-filter: blur(14px) saturate(1.4); border-bottom: 1px solid ${COLORS.line}; }
         .ce-main { width: 100%; max-width: 1180px; margin: 0 auto; padding: 28px 28px 64px; }
         .ce-grid-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
         .ce-grid-2 { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; align-items: start; }
@@ -2487,6 +2514,9 @@ export default function CampusEase() {
         }
         @media (max-width: 980px) { .ce-grid-2, .ce-grid-eq { grid-template-columns: minmax(0, 1fr); } }
         @media (max-width: 880px) {
+          .ce-hero { padding: 22px 18px; border-radius: 22px; }
+          .ce-hero h1 { font-size: 27px; }
+          .ce-pagehead { padding: 18px 18px; border-radius: 18px; }
           .ce-sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 290px !important; transform: translateX(-100%); box-shadow: 0 0 40px rgba(16,24,40,.25); }
           .ce-sidebar.open { transform: none; }
           .ce-overlay { display: block; position: fixed; inset: 0; z-index: 45; background: rgba(16,24,40,.45); }
@@ -2513,6 +2543,7 @@ export default function CampusEase() {
             <h1 style={{ margin: "0 0 6px", fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em" }}>CampusEase</h1>
             <p style={{ fontSize: 15, fontWeight: 600, color: COLORS.teal, margin: "0 0 14px" }}>{CAMPUS.slogan}</p>
             <p style={{ fontSize: 14, color: COLORS.inkMuted, lineHeight: 1.6, margin: "0 0 24px" }}>Your digital campus companion for <strong style={{ color: COLORS.ink }}>{CAMPUS.name}</strong>: maps, events, notices, facilities and community in one place.</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", margin: "-8px 0 22px" }}>{["Campus map", "Water cooler status", "FoodZa ordering", "Events and notices"].map((t) => <span key={t} style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.teal, background: COLORS.tealBg, padding: "5px 12px", borderRadius: 999 }}>{t}</span>)}</div>
             <div style={{ textAlign: "left", marginBottom: 16 }}>
               <Field label="What should we call you?" hint="Optional. Only used for your greeting.">
                 <input className="ce-input" placeholder="Your first name" value={userName} onChange={(e) => setUserName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") enter(); }} />
@@ -2526,7 +2557,7 @@ export default function CampusEase() {
           {drawer && <div className="ce-overlay" onClick={() => setDrawer(false)} />}
           <aside className={`ce-sidebar ${collapsed ? "collapsed" : ""} ${drawer ? "open" : ""}`} aria-label="Primary">
             <div className="ce-brand">
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, #4F46E5, #8B5CF6)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Building2 size={19} color="#fff" /></div>
+              <div style={{ width: 38, height: 38, borderRadius: 12, background: "linear-gradient(135deg, #4F46E5, #8B5CF6)", boxShadow: "0 6px 16px rgba(79,70,229,.38)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Building2 size={20} color="#fff" /></div>
               <div className="ce-brand-text" style={{ minWidth: 0, whiteSpace: "nowrap" }}>
                 <p style={{ margin: 0, fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em" }}>CampusEase</p>
                 <p style={{ margin: 0, fontSize: 11.5, color: COLORS.inkMuted }}>JAIN Global Campus</p>
@@ -2551,7 +2582,11 @@ export default function CampusEase() {
                 );
               })}
             </nav>
-            <p className="lbl" style={{ margin: "14px 8px 0", fontSize: 11.5, color: COLORS.inkFaint }}>{CAMPUS.slogan}</p>
+            <button className="ce-btn lbl" onClick={() => go("help")} style={{ marginTop: 14, width: "100%", display: "flex", alignItems: "center", gap: 10, textAlign: "left", padding: "12px 12px", borderRadius: 14, border: `1px solid ${COLORS.line}`, background: `linear-gradient(135deg, ${COLORS.tealBg}, transparent)` }}>
+              <span style={{ width: 32, height: 32, borderRadius: 10, background: COLORS.tealBg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><LifeBuoy size={16} color={COLORS.teal} /></span>
+              <span style={{ flex: 1, minWidth: 0 }}><span style={{ display: "block", fontSize: 13, fontWeight: 650 }}>Need a hand?</span><span style={{ display: "block", fontSize: 11.5, color: COLORS.inkMuted }}>Help and support</span></span>
+              <ChevronRight size={15} color={COLORS.inkFaint} />
+            </button>
           </aside>
 
           <div className="ce-content">
